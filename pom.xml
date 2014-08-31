@@ -1,0 +1,39 @@
+<project xmlns="http://maven.apache.org/POM/4.0.0" 
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" 
+	xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/maven-v4_0_0.xsd">
+  <modelVersion>4.0.0</modelVersion>
+
+  <groupId>com.example</groupId>
+  <artifactId>FretsGraphics</artifactId>
+  <version>1.0-SNAPSHOT</version>
+
+  <name>FretsGraphics</name>
+  <description>A graphics program to display guitar chords and formulas</description>
+
+	<contributors>
+		<contributor>
+			<name>Dan Becker</name>
+			<email>dan@danbecker.info</email>
+			<organizationUrl>http://www.danbecker.info/</organizationUrl>
+		</contributor>
+	</contributors>
+
+	<dependencies>
+		<dependency>
+			<groupId>frets</groupId>
+			<artifactId>frets</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		</dependency>        
+		<dependency>
+			<groupId>swingextensions</groupId>
+			<artifactId>SwingExtensions</artifactId>
+			<version>1.0-SNAPSHOT</version>
+		</dependency>        
+		<dependency>
+			<groupId>junit</groupId>
+			<artifactId>junit</artifactId>
+			<version>4.11</version>
+			<scope>test</scope>
+		</dependency>        
+	</dependencies>
+</project>
