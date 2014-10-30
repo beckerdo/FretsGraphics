@@ -1,7 +1,5 @@
 package frets.swing.ui;
 
-import static org.junit.Assert.assertEquals;
-
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
