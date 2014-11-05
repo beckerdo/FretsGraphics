@@ -9,10 +9,6 @@ import java.awt.Dimension;
 import java.awt.Image;
 import java.awt.KeyboardFocusManager;
 import java.awt.Rectangle;
-import java.awt.datatransfer.Clipboard;
-import java.awt.datatransfer.DataFlavor;
-import java.awt.datatransfer.Transferable;
-import java.awt.datatransfer.UnsupportedFlavorException;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -26,6 +22,7 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.ResourceBundle;
@@ -42,7 +39,6 @@ import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
-import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
@@ -52,7 +48,6 @@ import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
 import javax.swing.SwingUtilities;
-import javax.swing.TransferHandler;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.event.ChangeEvent;
@@ -62,16 +57,8 @@ import javax.swing.event.DocumentListener;
 import javax.swing.text.Document;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
-import javax.swing.undo.AbstractUndoableEdit;
-import javax.swing.undo.CannotRedoException;
-import javax.swing.undo.CannotUndoException;
-import javax.swing.undo.CompoundEdit;
-import javax.swing.undo.UndoableEdit;
 
-import swingextensions.persistence.PersistableCollection;
-import swingextensions.persistence.PersistenceHandler;
 import swingextensions.swingx.CutCopyPasteHelper;
-import swingextensions.swingx.DefaultTransferable;
 import swingextensions.swingx.DropShadowBorder;
 import swingextensions.swingx.DynamicAction;
 import swingextensions.swingx.JImagePanel;
@@ -81,12 +68,8 @@ import swingextensions.swingx.binding.JListListControllerAdapter;
 import swingextensions.swingx.binding.JTableListControllerAdapter;
 import swingextensions.swingx.binding.ListController;
 import swingextensions.swingx.text.RegExStyler;
-import swingextensions.swingx.text.TextUndoableEditGenerator;
-import swingextensions.swingx.undo.ExtendedCompoundEdit;
-import swingextensions.swingx.undo.ExtendedUndoManager;
 import swingextensions.ui.AboutBox;
 import swingextensions.ui.BarChartVisualizer;
-
 import frets.main.ChordRank;
 import frets.main.Display;
 import frets.main.Fretboard;
@@ -105,7 +88,6 @@ import frets.swing.model.ExtendedDisplayEntry;
  * Based on the Sun Swing PasswordStore demo.
  */
 public class Controller {
-	private static final DataFlavor ENTRY_MODEL_DATA_FLAVOR;
 	public static final int RANDOM_VARIATION = -1;
 
 	protected static Random random = new Random();
@@ -161,37 +143,11 @@ public class Controller {
     
     private static AboutBox aboutBox ;
     
-    private ExtendedUndoManager undoManager;
-
-    private boolean inSandbox;
-    
-    static {
-        DataFlavor flavor = null;
-        try {
-            flavor = new DataFlavor(DataFlavor.javaJVMLocalObjectMimeType +
-               "; class=java.util.ArrayList; x=frets");        
-        } catch (ClassNotFoundException ex) {
-            assert false;
-        }
-        ENTRY_MODEL_DATA_FLAVOR = flavor;
-    }
-    
-
     public Controller(JFrame host) {
     	System.out.println( "FretsController cons");
-        SecurityManager sm = System.getSecurityManager();
-        if (sm != null) {
-            try {
-                sm.checkSystemClipboardAccess();
-            } catch (SecurityException se) {
-                inSandbox = true;
-            }
-        }
-        undoManager = new ExtendedUndoManager();
         
         listController = new FilteredEntryListController();
-        PersistableCollection<ExtendedDisplayEntry> persistedCollection = loadCollection();
-        List<ExtendedDisplayEntry> list = persistedCollection.getList();
+        List<ExtendedDisplayEntry> list = new LinkedList<ExtendedDisplayEntry>();
         listController.setEntries( list );
         listController.addPropertyChangeListener( new ListControllerPropertyChangeListener() );
         selectedEntryChangeListener = new SelectedEntryPropertyChangeHandler();
@@ -396,7 +352,6 @@ public class Controller {
     // Notice that we do this here as List does not provide notification.
     private void add(List<ExtendedDisplayEntry> entries, int index) {
         // Add the entries to the model
-        undoManager.addEdit(new MutateUndo(index, entries.size(), false));
         validateMaxScore( entries );
         listController.getEntries().addAll(index, entries);
         listController.setSelection( entries );
@@ -455,8 +410,6 @@ public class Controller {
     // Deletes an item at the specified index.
     // Notice that we do this here as List does not provide change notification.
     private void delete(int index, int count) {
-        undoManager.addEdit(new MutateUndo(index, count, true));
-        // Remove the PasswordEntries from the model.
         List<ExtendedDisplayEntry> entries = listController.getEntries();
         for (int i = 0; i < count; i++) {
             entries.remove(index);
@@ -495,7 +448,6 @@ public class Controller {
     
     // Disables the controls (e.g. after deleteAll or if an invalid entry has been selected) 
     public void disableControls() {
-        undoManager.setIgnoreEdits(true);
         programmaticChange = true;
         fretboardTF.setEditable(false);
         rankerTF.setEditable(false);
@@ -527,49 +479,11 @@ public class Controller {
         largeImagePanel.setEditable(false);
         
         programmaticChange = false;
-        undoManager.setIgnoreEdits(false);
-    }
-    
-    // Tries to load a collection. If that fails a new model is returned
-    public PersistableCollection<ExtendedDisplayEntry> loadCollection() {
-		// Ignore for now until ready to load saved list.
-    	PersistableCollection<ExtendedDisplayEntry> persistedCollection = new PersistableCollection<ExtendedDisplayEntry>();
-//		try {
-//			PersistenceHandler handler = PersistenceHandler
-//					.getHandler(Application.APP_RESOURCES_PREFIX + FretsApplication.FRETS_MODEL_STORE_XML);
-//			if (handler.exists()) {
-//				persistedCollection.load(handler.getInputStream());
-//				for (ExtendedDisplayEntry entry : persistedCollection.getList()) {
-//					String imagePath = (String) entry.getMember("ImagePath");
-//					String imageLocation =
-//						Application.getResourceAsString(Application.APP_RESOURCES_PREFIX
-//						+ FretsApplication.FRETS_IMAGES + imagePath);
-//					entry.setMember("ImagePath", imageLocation);
-//				 }
-//			}
-//		} catch (IOException e) {
-//			// OK to ignore. A default empty model will be used.
-//		}
-		return persistedCollection;
     }
     
     // Returns true if the app can exit, false otherwise.
     protected boolean canExit() {
-        try {
-            PersistenceHandler handler = PersistenceHandler.getHandler( Application.APP_RESOURCES_PREFIX + FretsApplication.FRETS_MODEL_STORE_XML );
-            PersistableCollection<ExtendedDisplayEntry> collection = 
-            	new PersistableCollection<ExtendedDisplayEntry>(listController.getEntries());
-            collection.save(handler.getOutputStream());
-        } catch (IOException ex) {
-            // There was an error saving, prompt the user
-            int alertResult = JOptionPane.showOptionDialog(entryList,
-                    resources.getString("persistence.errorSaving"), 
-                    resources.getString("persistence.errorSavingTitle"), 
-                    JOptionPane.YES_NO_OPTION,
-                    JOptionPane.ERROR_MESSAGE, null, null, null);
-            // User wants to exit anyway.
-            return (alertResult == JOptionPane.YES_OPTION);
-        }
+    	// Do exit cleanup
         return true;
     }
 
@@ -721,15 +635,6 @@ public class Controller {
         
         JMenu editMenu = MnemonicHelper.createMenu( resources.getString("menu.edit"));
         menuBar.add(editMenu);
-        JMenuItem undoMI = createMenuItem(editMenu, "menu.undo", undoManager.getUndoAction());
-        undoMI.setAccelerator(KeyStroke.getKeyStroke("ctrl Z"));
-        undoMI.setEnabled(false);
-        editMenu.add(undoMI);
-        JMenuItem redoMI = createMenuItem(editMenu, "menu.redo", undoManager.getRedoAction());
-        redoMI.setAccelerator(KeyStroke.getKeyStroke("ctrl Y"));
-        redoMI.setEnabled(false);
-        editMenu.add(redoMI);
-        editMenu.addSeparator();
         JMenuItem cutMI = createMenuItem(editMenu, "menu.cut", CutCopyPasteHelper.getCutAction());
         cutMI.setAccelerator(KeyStroke.getKeyStroke("ctrl X"));
         editMenu.add(cutMI);
@@ -910,8 +815,6 @@ public class Controller {
 		}
 		commentsTP.getDocument().addDocumentListener(new DocumentHandler());
 		commentsTP.addMouseListener(new NotesMouseHandler(styler));
-		TextUndoableEditGenerator gen = new TextUndoableEditGenerator(commentsTP);
-		gen.addUndoableEditListener(undoManager);
 	}
 
     private Component createDisplayEditorPanel() {
@@ -964,10 +867,8 @@ public class Controller {
         entryList.setCellRenderer( entryListCellRenderer );
         entryListAdapter = new JListListControllerAdapter<ExtendedDisplayEntry>(listController, entryList);
         entryList.setPrototypeCellValue(new ExtendedDisplayEntry());
-        entryList.setTransferHandler(new ListTableTransferHandler());
         CutCopyPasteHelper.registerCutCopyPasteBindings(entryList);
         CutCopyPasteHelper.setPasteEnabled(entryList, true);
-        CutCopyPasteHelper.registerDataFlavors(entryList,new DataFlavor[] { ENTRY_MODEL_DATA_FLAVOR } );
     }
     
     private void createEntryTable() {
@@ -977,18 +878,13 @@ public class Controller {
         
     	// JTableListControllerAdapter(ListController<T> controller, JTable table) {
         entryTableAdapter = new JTableListControllerAdapter<ExtendedDisplayEntry>(listController, entryTable);
-        entryTable.setTransferHandler(new ListTableTransferHandler());
         
         CutCopyPasteHelper.registerCutCopyPasteBindings(entryTable);
         CutCopyPasteHelper.setPasteEnabled(entryTable, true);
-        CutCopyPasteHelper.registerDataFlavors(entryTable,
-                new DataFlavor[] { ENTRY_MODEL_DATA_FLAVOR } );
     }
     
     private JTextField createTF(DocumentListener documentListener) {
         JTextField tf = new JTextField(10);
-        TextUndoableEditGenerator gen = new TextUndoableEditGenerator(tf);
-        gen.addUndoableEditListener(undoManager);
         tf.getDocument().addDocumentListener(documentListener);
         return tf;
     }
@@ -1029,10 +925,7 @@ public class Controller {
     }
 
     private void filterChanged() {
-    	CompoundEdit edit = new FilterUndo(undoManager,listController.getFilter());
-        undoManager.addEdit(edit);
         listController.setFilter(filterTF.getText());
-        edit.end();
     }
     
     // Listener attached to JTextField's model. Takes a callback when appropriate.
@@ -1211,7 +1104,6 @@ public class Controller {
 
     // Invoked when the selection in the list has changed
     private void selectionChanged(List<ExtendedDisplayEntry> oldSelection) {
-        undoManager.addEdit(new SelectionChangeUndo(oldSelection));
         if (selectedEntry != null) {
             selectedEntry.setMember("Comments", commentsTP.getText());
             selectedEntry.removePropertyChangeListener(selectedEntryChangeListener);
@@ -1235,7 +1127,6 @@ public class Controller {
             // And give the root editor.
             rootEditor.requestFocus();
         } else {
-            undoManager.setIgnoreEdits(true);
             // Only one value is selected, update the fields appropriately
             selectedEntry = selection.get(0);
             rootEditor.setEditable(true);
@@ -1254,10 +1145,8 @@ public class Controller {
             // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
             int [] scores = scanScore( scoreString );
             visualizer.setColumns( scores );
-            detailsImagePanel.setEditable(!inSandbox);
             detailsImagePanel.setBackground(Color.WHITE);
             detailsImagePanel.setImage( getDetailsImage(selectedEntry));
-            largeImagePanel.setEditable(!inSandbox);
             largeImagePanel.setBackground(Color.WHITE);
             largeImagePanel.setImage( getLargeImage(selectedEntry));
             commentsTP.setEditable(true);
@@ -1265,7 +1154,6 @@ public class Controller {
             displayEditor.setEditable(true);
 
             selectedEntry.addPropertyChangeListener(selectedEntryChangeListener);            
-            undoManager.setIgnoreEdits(false);
         }
         
         // textfields are now in sync with selection, any changes from the UI
@@ -1359,259 +1247,6 @@ public class Controller {
                 } catch (UnsupportedOperationException ex) {
                 }
             }
-        }
-    }
-
-    public final class ListTableTransferHandler extends TransferHandler {
-		private static final long serialVersionUID = 1L;
-
-		@SuppressWarnings( "rawtypes" )
-		public boolean importData(JComponent comp, Transferable t) {
-            try {
-                List entries = (List)t.getTransferData(ENTRY_MODEL_DATA_FLAVOR);
-                int index;
-                if (entryList != null) {
-                    index = entryList.getLeadSelectionIndex();
-                } else {
-                    index = entryTable.getSelectionModel().
-                            getLeadSelectionIndex();
-                }
-                if (index == -1) {
-                    index = 0;
-                } else {
-                    index++;
-                }
-                index = Math.min(index, listController.getEntries().size());
-                List<ExtendedDisplayEntry> copy = new ArrayList<ExtendedDisplayEntry>(
-                        entries.size());
-                for (Object entry : entries) {
-                    copy.add( ((ExtendedDisplayEntry)entry).clone());
-                }
-                add(copy, index);
-                return true;
-            } catch (IOException ex) {
-            } catch (UnsupportedFlavorException ex) {
-            }
-            return false;
-        }
-
-        public void exportToClipboard(JComponent comp, Clipboard clip,
-                int action) throws IllegalStateException {
-            action = getSourceActions(comp) & action;
-            List<ExtendedDisplayEntry> selection = listController.getSelection();
-            List<ExtendedDisplayEntry> copy = new ArrayList<ExtendedDisplayEntry>(
-                    selection.size());
-            for (ExtendedDisplayEntry entry : selection) {
-                copy.add(entry.clone());
-            }
-            Transferable trans = new DefaultTransferable(ENTRY_MODEL_DATA_FLAVOR, copy);
-            clip.setContents(trans, null);
-            if (action == MOVE) {
-                List<ExtendedDisplayEntry> entries = listController.getEntries();
-                // List<displayEntry> selectionCopy = new ArrayList<DisplayEntry>(listController.getSelection());
-                listController.setSelection(null);
-                ExtendedCompoundEdit moveUndo = new ExtendedCompoundEdit(undoManager);
-                undoManager.addEdit(moveUndo);
-                for (ExtendedDisplayEntry entry : selection) {
-                    int index = entries.indexOf(entry);
-                    delete(index, 1);
-                }
-                moveUndo.end();
-            }
-        }
-
-        public int getSourceActions(JComponent c) {
-            return COPY_OR_MOVE;
-        }
-
-        public boolean canImport(JComponent comp, DataFlavor[] transferFlavors) {
-            for (DataFlavor flavor : transferFlavors) {
-                if (flavor.equals(ENTRY_MODEL_DATA_FLAVOR)) {
-                    return true;
-                }
-            }
-            return false;
-        }
-    }
-    
-    public final class FilterUndo extends ExtendedCompoundEdit {
-		private static final long serialVersionUID = 1L;
-		private boolean subsumeNextSelection;
-        private String filterString;
-        
-        public FilterUndo(ExtendedUndoManager unodManager, String filterString) {
-            super(undoManager);
-            this.filterString = filterString;
-            subsumeNextSelection = true;
-        }
-        
-        public boolean addEdit(UndoableEdit anEdit) {
-            if (anEdit instanceof FilterUndo) {
-                subsumeNextSelection = true;
-                return true;
-            }
-            if (subsumeNextSelection && anEdit instanceof SelectionChangeUndo) {
-                subsumeNextSelection = false;
-                return true;
-            }
-            return super.addEdit(anEdit);
-        }
-
-        public boolean isSignificant() {
-            return true;
-        }
-
-        public void undo() throws CannotUndoException {
-            super.undo();
-            swapFilter();
-        }
-
-        public void redo() throws CannotRedoException {
-            super.redo();
-            swapFilter();
-        }
-        
-        private void swapFilter() {
-        	programmaticChange = true;
-            String currentFilter = listController.getFilter();
-            listController.setFilter(filterString);
-            filterTF.setText(filterString);
-            filterTF.requestFocus();
-            filterString = currentFilter;
-            programmaticChange = false;
-        }
-    }
-    
-    public final class SelectionChangeUndo extends AbstractUndoableEdit {
-		private static final long serialVersionUID = 1L;
-		private List<ExtendedDisplayEntry> lastSelection;
-        
-        public SelectionChangeUndo(List<ExtendedDisplayEntry> lastSelection) {
-            this.lastSelection = lastSelection;
-        }
-        
-        public void undo() throws CannotUndoException {
-            super.undo();
-            swapSelection();
-        }
-        
-        public void redo() throws CannotRedoException {
-            super.redo();
-            swapSelection();
-        }
-
-        private void swapSelection() {
-            List<ExtendedDisplayEntry> selection = listController.getSelection();
-            listController.setSelection(lastSelection);
-            lastSelection = selection;
-        }
-
-        public boolean isSignificant() {
-            return true;
-        }
-
-        public boolean addEdit(UndoableEdit anEdit) {
-            if (anEdit instanceof SelectionChangeUndo) {
-                anEdit.die();
-                lastSelection = ((SelectionChangeUndo)anEdit).lastSelection;
-                return true;
-            }
-            return false;
-        }
-        
-        public String toString() {
-            return getClass().getName() + "@" + hashCode() +
-                    "[selection=" + lastSelection + "]";
-        }
-    }
-    
-    public static final class ChangeTabUndo extends AbstractUndoableEdit {
-		private static final long serialVersionUID = 1L;
-		private final JTabbedPane tp;
-        private int lastIndex;
-
-        public ChangeTabUndo(JTabbedPane tp, int lastIndex) {
-            this.tp = tp;
-            this.lastIndex = lastIndex;
-        }
-        
-        public void redo() throws CannotRedoException {
-            super.redo();
-            swap();
-        }
-
-        public void undo() throws CannotUndoException {
-            super.undo();
-            swap();
-        }
-
-        public boolean addEdit(UndoableEdit anEdit) {
-            if (anEdit instanceof ChangeTabUndo) {
-                return true;
-            }
-            return false;
-        }
-
-        public boolean isSignificant() {
-            return true;
-        }
-        
-        private void swap() {
-            int currentIndex = tp.getSelectedIndex();
-            tp.setSelectedIndex(lastIndex);
-            lastIndex = currentIndex;
-        }
-    }
-
-    public final class MutateUndo extends AbstractUndoableEdit {
-		private static final long serialVersionUID = 1L;
-		private List<ExtendedDisplayEntry> elements;
-        private int index;
-        private int count;
-        
-        public MutateUndo(int index, int count, boolean isRemove) {
-            this.index = index;
-            this.count = count;
-            if (isRemove) {
-                fetchSubList();
-            }
-        }
-
-        public void undo() throws CannotUndoException {
-            super.undo();
-            swap();
-        }
-        
-        public void redo() throws CannotRedoException {
-            super.redo();
-            swap();
-        }
-
-        private void swap() {
-            if (elements != null) {
-                add(elements, index);
-                elements = null;
-            } else {
-                fetchSubList();
-                delete(index, count);
-            }
-        }
-
-        public boolean isSignificant() {
-            return true;
-        }
-        
-        private void fetchSubList() {
-            elements = new ArrayList<ExtendedDisplayEntry>(
-                    listController.getEntries().subList(index,
-                    index + count));
-        }
-        
-        public String toString() {
-            return getClass().getName() + "@" + hashCode() + "[index=" + index + 
-                    ", count=" + count +
-                    ", elements=" + elements +
-                    "]";
         }
     }
 }
