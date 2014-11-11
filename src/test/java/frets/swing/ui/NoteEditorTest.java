@@ -11,7 +11,7 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 
 /**
- * Unit tests to validate this class.  
+ * Graphic test to validate this class.  
  * @author <a href="mailto:dan@danbecker.info">Dan Becker</a>
  */
 public class NoteEditorTest {
@@ -24,7 +24,6 @@ public class NoteEditorTest {
 	public void testCRUD() {
 		NoteEditor editor = new NoteEditor();
 		assertNotNull("Editor note", editor.getNote());
-
 		assertEquals("Editor style", NoteEditor.Style.HORIZONTAL, editor.getStyle());
 	}
 
