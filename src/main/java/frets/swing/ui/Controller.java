@@ -1017,9 +1017,12 @@ public class Controller {
    			}
         } else if (( NoteEditor.EVENT_NAME.equals( propertyChanged )) || ( "Formula".equals( propertyChanged ))) {
         	// The note editor root note changed, or the formula text changed
-        	String rootText = ((Note) newValueOrCommand).toString();
-            String formula = (String) displayEntry.getMember( "Formula" );
-            updateControls( displayEntry, rootText, formula, RANDOM_VARIATION );
+        	Note rootNote = rootEditor.getNote();
+        	if ( null != rootNote ) {
+        		String rootText = rootNote.toString();
+        		String formula = (String) displayEntry.getMember( "Formula" );
+        		updateControls( displayEntry, rootText, formula, RANDOM_VARIATION );
+        	}
         } else if ("Variation".equals( propertyChanged )) {
             variationTF.setText((String) displayEntry.getMember( "Variation" ));
         } else if ("Comments".equals( propertyChanged )) {
