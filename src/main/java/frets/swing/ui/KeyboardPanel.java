@@ -1,7 +1,13 @@
 package frets.swing.ui;
 
 import java.awt.event.*;
+import java.util.HashSet;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Set;
+
 import javax.swing.*;
+
 import frets.main.Note;
 
 /** 
@@ -65,11 +71,65 @@ public class KeyboardPanel extends JLayeredPane implements ActionListener {
 		this.allowMultiple = allowMultiple;
 	}
 
+	/** Set the pressed state of all keys. */
+	public void setKeyPressed( boolean [] pressed ) {
+		int length = pressed.length > keys.length ? keys.length : pressed.length;
+		for( int i = 0; i < length; i++ ) 
+			keys[ i ].setPressed( pressed[ i ] );					
+	}
+	
+	/* Return the pressed state of all keys. */
+	public boolean [] getKeyPressed() {
+		boolean [] pressed = new boolean [ keys.length ];
+		for( int i = 0; i < pressed.length; i++ ) 
+			pressed[ i ] = keys[ i ].isPressed();					
+		return pressed;
+	}
+		
+	/** Set the pressed state of all keys. */
+	public void setPressed( Set<Note> notes ) {
+		for( int i = 0; i < keys.length; i++ ) {
+			KeyComponent key = keys[ i ];
+			key.setPressed( notes.contains( key.getNote() ));
+		}
+	}
+	
+	/* Return the notes of pressed keys. */
+	public Set<Note> getPressedNotes() {
+		Set<Note> notes = new HashSet<Note>();
+		for ( KeyComponent key : keys ) {
+			if ( key.isPressed() ) {
+				notes.add( key.getNote() );
+			}
+		}
+		return notes;
+	}
+		
+	/** Set the pressed state of all keys. */
+	public void setPressed( Note note ) {
+		for( int i = 0; i < keys.length; i++ ) {
+			KeyComponent key = keys[ i ];
+			key.setPressed( note.equals( key.getNote() ));
+		}
+	}
+	
+	/* Return the notes of pressed keys. Only returns first match if any. */
+	public Note getPressedNote() {
+		Set<Note> notes = new HashSet<Note>();
+		for ( KeyComponent key : keys ) {
+			if ( key.isPressed() ) {
+				 return key.getNote();
+			}
+		}
+		return null;
+	}
+		
+	/** Listen to all keys in the panel. */
     public void actionPerformed(ActionEvent e) {
         Object comp = e.getSource();
         String command = e.getActionCommand();
         // String params = e.paramString();
-        System.out.println( "KeyPanel command=" + command );
+        // System.out.println( "KeyPanel command=" + command );
         
         if ( !allowMultiple ) {
         	// unpress other components
@@ -80,9 +140,44 @@ public class KeyboardPanel extends JLayeredPane implements ActionListener {
         	}
         	}
         }
+        fireActionPerformed(null);
     }
 
-    public String getDisplayName() {
-        return "Keys";
+	// Handle action listeners
+	List<ActionListener> listeners = new LinkedList<ActionListener>();
+    public void addActionListener(ActionListener l) {
+        listeners.add(l);
     }
+    public void removeActionListener(ActionListener l) {
+    	listeners.remove( l );
+    }
+    public ActionListener[] getActionListeners() {
+        return listeners.toArray( new ActionListener [] {} );
+    }
+    
+    /** Broadcast to listeners a note pressed event. */
+    protected synchronized void fireActionPerformed(ActionEvent event) {
+        ActionEvent e = null;
+    	String noteString = "";
+        if ( null == e ) {
+        	Set<Note> notes = getPressedNotes();
+        	for ( Note note : notes ) {
+        		if (noteString.length() > 0) noteString += ":";
+        		noteString += note.toString();
+        	}
+            e = new ActionEvent( this,
+                    ActionEvent.ACTION_PERFORMED,
+                    noteString,
+                    System.currentTimeMillis(),
+                    0 );
+            		// event.getModifiers());
+        }
+
+        if (( null != noteString ) && ( noteString.length() > 0)) {
+        for( ActionListener listener: getActionListeners() ) {
+        	listener.actionPerformed(e);
+        }
+        }
+    }
+
 }

@@ -229,7 +229,9 @@ public class KeyComponent extends JComponent {
 	 */
 	@Override
 	public boolean contains(int x, int y) {
-		Rectangle bounds = shape.getBounds();
+		Rectangle bounds = getBounds();
+		if ( null != shape )
+		   bounds = shape.getBounds();
 		Insets insets = getInsets();
 
 		// Check to see if the Shape contains the point. Take into account
@@ -260,17 +262,15 @@ public class KeyComponent extends JComponent {
     public ActionListener[] getActionListeners() {
         return listeners.toArray( new ActionListener [] {} );
     }
+    /** Broadcast to listeners a note pressed event. */
     protected synchronized void fireActionPerformed(ActionEvent event) {
-        // Guaranteed to return a non-null array
-        Object[] listeners = listenerList.getListenerList();
-        
         ActionEvent e = event;
         if ( null == e ) {
             e = new ActionEvent( this,
                     ActionEvent.ACTION_PERFORMED,
                     this.getName(),
                     System.currentTimeMillis(),
-                    0 );
+                    isPressed() ? 1 : 0 );
             		// event.getModifiers());
         }
 
