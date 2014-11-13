@@ -8,10 +8,15 @@ import java.awt.Insets;
 import java.awt.Polygon;
 import java.awt.Rectangle;
 import java.awt.Shape;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
+
+import java.util.List;
+import java.util.LinkedList;
 
 import frets.main.Note;
 
@@ -30,18 +35,35 @@ public class KeyComponent extends JComponent {
 	public static final float OFFSET_23 = 2f/3f;
 	public static final float OFFSET_12 = 1f/2f;
 	
-    public Note note = null;
+	public static final Color PRESSED_BLACK = new Color( 120, 120, 120 ); // black key color when not pressed.
+	public static final Color PRESSED_WHITE = new Color( 240, 240, 240 ); // white key color when not pressed.
+	
     public Shape shape = null;
 	
-    public KeyComponent() {}
+    public Note note = null;
+    public boolean latches = true;
+    public boolean pressed = false;
+    
+	public KeyComponent() {}
     
 	public KeyComponent( final Note note ) {
+		this( note, true, null );
+    }
+	
+	public KeyComponent( final Note note, boolean latches ) {
+		this( note, latches, null );
+	}
+	
+	public KeyComponent( final Note note, boolean latches, ActionListener listener ) {
 		this.note = note;
+		this.setName( note.getName());
 		// System.out.println( "Key note=" + this.note.getName());
+		setLatches( latches );
+		if ( null != listener )
+			addActionListener( listener );
 		
 		// Set sizes
-		String name = note.getName();
-		switch ( name ) {
+		switch ( this.getName() ) {
 			case "C": case "D": case "E": case "F": case "G": case "A": case "B":   
 				this.setForeground( Color.WHITE );
 		        this.setBorder(BorderFactory.createLineBorder(Color.BLACK));
@@ -50,7 +72,6 @@ public class KeyComponent extends JComponent {
 				this.setForeground( Color.BLACK );
 		        this.setBorder(BorderFactory.createLineBorder(Color.LIGHT_GRAY));
 		}
-
 		
         addComponentListener(new ComponentAdapter() {
             // It is best practice to set the window's shape in
@@ -67,8 +88,6 @@ public class KeyComponent extends JComponent {
         		if (( null == s ) || ( s.width < 1 ) || ( s.height < 1 )) {
         			return;
         		}
-        		// final int WH_WIDTH = s.width / 7;
-        		// final int WH_HEIGHT = s.height;
         		final int BL_HEIGHT = 6 * s.height / 10; // 2/3 height
         		final int BL_WIDTH = 2 * s.width / 21; // 2/3 white width
 
@@ -122,21 +141,59 @@ public class KeyComponent extends JComponent {
 
         addMouseListener( new MouseListener() {
 			@Override
-			public void mouseReleased(MouseEvent e) {}			
-			@Override
-			public void mousePressed(MouseEvent e) {}			
-			@Override
 			public void mouseExited(MouseEvent e) {}			
 			@Override
 			public void mouseEntered(MouseEvent e) {}			
 			@Override
+			public void mousePressed(MouseEvent e){
+				KeyComponent comp = (KeyComponent) e.getComponent();
+                // System.out.println("The key " + comp.getNote().getName() + " was pressed at " + e.getX() + "," + e.getY());
+				if ( comp.isLatches() )
+					comp.setPressed( !comp.isPressed() );
+				else
+					comp.setPressed( true );
+                comp.fireActionPerformed(null);                  
+			}			
+			@Override
+			public void mouseReleased(MouseEvent e) {
+				KeyComponent comp = (KeyComponent) e.getComponent();
+				if ( !comp.isLatches() )
+					comp.setPressed( false );
+			}			
+			@Override
 			public void mouseClicked(MouseEvent e) {
-                System.out.println("The key " + note.getName() + " was clicked at " + e.getX() + "," + e.getY());
+				KeyComponent comp = (KeyComponent) e.getComponent();
+                // System.out.println("The key " + note.getName() + " was clicked at " + e.getX() + "," + e.getY());
 			}
 		});
 
 	}
 	
+	public Note getNote() {
+		return note;
+	}
+
+	public void setNote(Note note) {
+		this.note = note;
+	}
+
+    public boolean isLatches() {
+		return latches;
+	}
+
+	public void setLatches(boolean latches) {
+		this.latches = latches;
+	}
+
+	public boolean isPressed() {
+		return pressed;
+	}
+
+	public void setPressed(boolean pressed) {
+		this.pressed = pressed;
+		repaint();
+	}
+
 	@Override
 	protected void paintComponent(Graphics g) {
 		super.paintComponent(g);
@@ -149,31 +206,40 @@ public class KeyComponent extends JComponent {
 			// Graphics2D is required for antialiasing and painting Shapes
 			Graphics2D g2d = (Graphics2D) g.create();	
 			g2d.translate(insets.left - bounds.x, insets.top - bounds.y);
-			g2d.fill(shape);	
+			if ( this.isPressed() ) {
+				if ( this.note.hasAccidental() )
+					setForeground( PRESSED_BLACK );
+				else
+					setForeground( PRESSED_WHITE );
+			} else {
+				if ( this.note.hasAccidental() )
+					setForeground( Color.BLACK );
+				else
+					setForeground( Color.WHITE );				
+			}
+			g2d.fill(shape);
 			g2d.dispose();
 		}
 	}
 
 	/**
-	 * Determine if the point is in the bounds of the Shape
+	 * Determine if the point is in the bounds of the component
 	 *
 	 * {@inheritDoc}
 	 */
 	@Override
 	public boolean contains(int x, int y) {
-		if ( null == shape )
-			return false;
-		
 		Rectangle bounds = shape.getBounds();
 		Insets insets = getInsets();
 
 		// Check to see if the Shape contains the point. Take into account
 		// the Shape X/Y coordinates, Border insets and Shape translation.
-
 		int translateX = x + bounds.x - insets.left;
 		int translateY = y + bounds.y - insets.top;
-
-		return shape.contains(translateX, translateY);
+		if ( null != shape ) 
+			return shape.contains(translateX, translateY);
+		else 
+			return bounds.contains(translateX, translateY);
 	}
 	
 	@Override
@@ -182,4 +248,34 @@ public class KeyComponent extends JComponent {
 		if ( this.note != null) name = this.note.getName();
 		return "KeyComponent name=" + name + ", size=" + this.getSize().toString();
 	}
+
+	// Handle action listeners
+	List<ActionListener> listeners = new LinkedList<ActionListener>();
+    public void addActionListener(ActionListener l) {
+        listeners.add(l);
+    }
+    public void removeActionListener(ActionListener l) {
+    	listeners.remove( l );
+    }
+    public ActionListener[] getActionListeners() {
+        return listeners.toArray( new ActionListener [] {} );
+    }
+    protected synchronized void fireActionPerformed(ActionEvent event) {
+        // Guaranteed to return a non-null array
+        Object[] listeners = listenerList.getListenerList();
+        
+        ActionEvent e = event;
+        if ( null == e ) {
+            e = new ActionEvent( this,
+                    ActionEvent.ACTION_PERFORMED,
+                    this.getName(),
+                    System.currentTimeMillis(),
+                    0 );
+            		// event.getModifiers());
+        }
+
+        for( ActionListener listener: getActionListeners() ) {
+        	listener.actionPerformed(e);
+        }
+    }
 }

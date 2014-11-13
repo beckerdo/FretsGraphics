@@ -59,15 +59,24 @@ public class KeyboardLayout implements LayoutManager {
 		int componentCount = parent.getComponentCount();
 		// System.out.println( "Keyboard layout component count=" + componentCount );
 		for ( int i = 0; i < componentCount; i++ ) {
-			KeyComponent component = (KeyComponent) parent.getComponent(i);
-			Note note = component.note;
+			// Remove dependency on specific component. Instead rely on component name,
+			// KeyComponent component = (KeyComponent) parent.getComponent(i);
+			// KeyToggle component = (KeyToggle) parent.getComponent(i);
+			Component component = parent.getComponent(i);
+			String noteName = component.getName();
+			if ((null == noteName) || (noteName.length() < 1))
+				throw new IllegalArgumentException( "KeyboardLayout only designed to work with notes.");
+			Note note = Note.parse( noteName );
 			// Set sizes
 			switch ( note.getName() ) {
 				case "C": case "D": case "E": case "F": case "G": case "A": case "B": // white
 					component.setSize( WH_WIDTH, WH_HEIGHT);
 				break;
-				default: // black
+				case "C#": case "D#": case "F#": case "G#": case "A#": // black
 					component.setSize( BL_WIDTH, BL_HEIGHT);
+				break;
+				default:
+					System.out.println( "Unknown key note name=" + note.getName());
 			}
 			// Set positions
 			switch ( note.getName() ) {

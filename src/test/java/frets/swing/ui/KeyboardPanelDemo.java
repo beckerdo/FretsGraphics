@@ -32,7 +32,7 @@ public class KeyboardPanelDemo extends JPanel
         frame.setContentPane(newContentPane);
 
         // Display the window.
-        frame.setSize( 300, 200 );
+        frame.setSize( 160, 120 );
         // frame.pack();
         frame.setVisible(true);
     }
