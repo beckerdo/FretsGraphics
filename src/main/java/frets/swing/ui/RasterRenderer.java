@@ -138,7 +138,7 @@ public class RasterRenderer {
 	    }
 
 	    // Draw dots on fretboard.
-	    LocationList dots = new LocationList( "[2,3],[2,5],[2,7],[2,9],[1,12],[3,12],[2,15]"); 
+	    LocationList dots = new LocationList( "2-3,2-5,2-7,2-9,1-12,3-12,2-15"); 
 	    paintDots( fretboard, dots, g2d, size, displayOpts, true, fretMinStringMin, fretMaxStringMax ); 
 
 	    // Draw fretboard locations

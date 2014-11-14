@@ -98,11 +98,10 @@ public class NoteSpinner extends JPanel implements ActionListener, ChangeListene
 		Object source = event.getSource();
 		if ( source.getClass().isAssignableFrom( JSpinner.class )) {
 			JSpinner spinner = (JSpinner) source;
-			System.out.println( "stateChanged value=" + spinner.getValue() );
 			Note oldNote = new Note( note );
-			System.out.println( "Value=" + value.getValue() + ", octave=" + octave.getValue() );
 	        note = new Note( (String)value.getValue() + Integer.toString( (int) octave.getValue() ) );
-			PropertyChangeEvent propEvent = new PropertyChangeEvent( note, EVENT_NAME, oldNote, note);
+			PropertyChangeEvent propEvent = new PropertyChangeEvent( this, EVENT_NAME, oldNote, note);
+			System.out.println( "stateChanged property event=" + propEvent );
 			firePropertyChange( propEvent );
 		} else
 			System.out.println( "stateChanged source=" + source );				

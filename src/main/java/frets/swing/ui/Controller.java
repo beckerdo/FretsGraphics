@@ -104,11 +104,6 @@ public class Controller {
     // PropertyChangeListener attached to each displayEntry
     private PropertyChangeListener selectedEntryChangeListener;
 
-    // JList used to show the entries.
-    private JList<ExtendedDisplayEntry> entryList;    
-    private JListListControllerAdapter<ExtendedDisplayEntry> entryListAdapter;
-    private EntryListCellRenderer entryListCellRenderer;
-    
     private JTable entryTable;    
     private JTableListControllerAdapter<ExtendedDisplayEntry> entryTableAdapter;
 
@@ -169,53 +164,6 @@ public class Controller {
            resources.getString( "aboutBox.icon.location" ),
            resources.getString( "aboutBox.background.location" )
  	    );
-    }
-    
-    public void viewList() {
-        if (!isViewingList()) {
-            boolean tableHasFocus = (KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner() == entryTable);
-            createEntryList( displayOpts, fretboard );
-            swap(entryTable, entryList);
-            entryTable = null;
-            entryTableAdapter.dispose();
-            entryTableAdapter = null;
-            int selectedIndex = entryList.getMinSelectionIndex();
-            if (selectedIndex != -1) {
-                entryList.scrollRectToVisible( entryList.getCellBounds(selectedIndex, selectedIndex));
-            }
-            updateCutCopyPasteForEntryView();
-            if (tableHasFocus) {
-                entryList.requestFocus();
-            }
-        }
-    }
-    
-    public void viewTable() {
-        if (isViewingList()) {
-            boolean listHasFocus = (KeyboardFocusManager.getCurrentKeyboardFocusManager().getPermanentFocusOwner() == entryList);
-            createEntryTable();
-            swap(entryList, entryTable);
-            entryList = null;
-            entryListAdapter.dispose();
-            entryListAdapter = null;
-            int selectedIndex = entryTable.getSelectedRow();
-            if (selectedIndex != -1) {
-                entryTable.scrollRectToVisible(entryTable.getCellRect(selectedIndex, 0, true));
-            }
-            updateCutCopyPasteForEntryView();
-            if (listHasFocus) {
-                entryTable.requestFocus();
-            }
-        }
-    }
-    
-    private boolean isViewingList() {
-        return (entryList != null);
-    }
-
-    private void swap(JComponent existing, JComponent toAdd) {
-        JScrollPane sp = (JScrollPane)existing.getParent().getParent();
-        sp.setViewportView(toAdd);
     }
     
     // Adds a new displayEntry
@@ -355,14 +303,10 @@ public class Controller {
         validateMaxScore( entries );
         listController.getEntries().addAll(index, entries);
         listController.setSelection( entries );
-        if (entryList != null) {
-        	entryList.revalidate();
-        	Rectangle scrollRect = entryList.getCellBounds(index, index);
-        	entryList.scrollRectToVisible( scrollRect );
-        } else {
-        	entryTable.revalidate();
-            entryTable.scrollRectToVisible(entryTable.getCellRect(index, 0, true));
-        }
+       	entryTable.revalidate();
+        // entryTable.scrollRectToVisible(entryTable.getCellRect(index, 0, true));
+        
+
     }
     
     public void deleteSelection() {
@@ -370,21 +314,11 @@ public class Controller {
         listController.deleteSelection();
 
         if ( listController.getEntryCount() > 0 ) {
-            if (entryList != null) {
-            	entryList.revalidate();
-            	Rectangle scrollRect = entryList.getCellBounds(0, 0);
-            	entryList.scrollRectToVisible( scrollRect );
-            } else {
-            	entryTable.revalidate();
-                entryTable.scrollRectToVisible(entryTable.getCellRect(0, 0, true));
-            }
+          	entryTable.revalidate();
+            entryTable.scrollRectToVisible(entryTable.getCellRect(0, 0, true));
         } else {
             disableControls();        	
-            if (entryList != null) {
-            	entryList.revalidate();
-            } else {
-            	entryTable.revalidate();
-            }            
+           	entryTable.revalidate();
         }
 
         // And give the root editor.
@@ -397,11 +331,7 @@ public class Controller {
 
         disableControls();
         
-        if (entryList != null) {
-        	entryList.revalidate();
-        } else {
-        	entryTable.revalidate();
-        }
+       	entryTable.revalidate();
         
         // And give the root editor.
         rootEditor.requestFocus();
@@ -420,13 +350,6 @@ public class Controller {
        aboutBox.show(SwingUtilities.getWindowAncestor(filterTF));
     }
 
-    private void updateCutCopyPasteForEntryView() {
-        List<ExtendedDisplayEntry> selection = listController.getSelection();
-        JComponent view = (entryTable == null) ? entryList : entryTable;
-        CutCopyPasteHelper.setCopyEnabled(view, selection.size() > 0);
-        CutCopyPasteHelper.setCutEnabled(view, selection.size() > 0);
-    }
-    
     // Ensure the new list items update the max score.
     protected void validateMaxScore( List<ExtendedDisplayEntry> entries ) {
     	for ( ExtendedDisplayEntry entry : entries ) {
@@ -435,12 +358,10 @@ public class Controller {
      	    int sumScore = scores[ 0 ];
             if ( sumScore > maxSumScore ) { 
          	   maxSumScore = sumScore;
-         	   entryListCellRenderer.setMaxScore(maxSumScore);
          	   visualizer.setMaxValue( maxSumScore );
             }    		
             if ( sumScore < minSumScore ) { 
           	   minSumScore = sumScore;
-          	   entryListCellRenderer.setMinScore(minSumScore);
           	   visualizer.setMaxValue( maxSumScore );
              }    		
     	}
@@ -588,9 +509,35 @@ public class Controller {
 		rankerTF.setEditable( false );
         JLabel filterLabel = new JLabel(resources.getString("label.filter"));
 
-        createEntryList( displayOpts, fretboard );
-        JScrollPane entrySP = new JScrollPane(entryList);
+        JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+		// createEntryTable();		
+        // entryTable = new JTable();
+        // entryTable.setFillsViewportHeight(true);
+        // entryTable.setAutoCreateRowSorter(true);
+        // entryTable.setSize( 400, 100 );
+        // entryTableAdapter = new JTableListControllerAdapter<ExtendedDisplayEntry>(listController, entryTable);
+		
+        String[] columnNames = {"First Name",
+                "Last Name",
+                "Sport",
+                "# of Years",
+                "Vegetarian"};
+        Object[][] data = {
+        	    {"Kathy", "Smith",
+        	     "Snowboarding", new Integer(5), new Boolean(false)},
+        	    {"John", "Doe",
+        	     "Rowing", new Integer(3), new Boolean(true)},
+        	    {"Sue", "Black",
+        	     "Knitting", new Integer(2), new Boolean(false)},
+        	    {"Jane", "White",
+        	     "Speed reading", new Integer(20), new Boolean(true)},
+        	    {"Joe", "Brown",
+        	     "Pool", new Integer(10), new Boolean(false)}
+        	};
+
+        entryTable = new JTable(data, columnNames);
+        entrySP.setViewportView( entryTable );             
 
         GroupLayout.ParallelGroup hGroup = 
         	frameLayout.createParallelGroup(GroupLayout.Alignment.LEADING);
@@ -644,28 +591,7 @@ public class Controller {
         JMenuItem pasteMI = createMenuItem(editMenu, "menu.paste",CutCopyPasteHelper.getPasteAction());
         pasteMI.setAccelerator(KeyStroke.getKeyStroke("ctrl V"));
         editMenu.add(pasteMI);
-        
-        JMenu viewMenu = MnemonicHelper.createMenu( resources.getString("menu.view"));
-        ButtonGroup viewButtonGroup = new ButtonGroup();
-        menuBar.add(viewMenu);
-
-        // viewMenu.add(new LookAndFeelMenu());
-        // viewMenu.addSeparator();
-
-        JMenuItem viewListMI = new JRadioButtonMenuItem();
-        MnemonicHelper.configureTextAndMnemonic(viewListMI, resources.getString("menu.viewList"));
-        viewMenu.add(viewListMI);
-        viewListMI.setSelected(true);
-        viewButtonGroup.add(viewListMI);
-        viewListMI.addActionListener(new DynamicAction(this, "viewList"));
-        
-        JMenuItem viewTableMI = new JRadioButtonMenuItem();
-        MnemonicHelper.configureTextAndMnemonic(viewTableMI, resources.getString("menu.viewTable"));
-        viewMenu.add(viewTableMI);
-        viewButtonGroup.add(viewTableMI);
-        viewTableMI.addActionListener(new DynamicAction(this, "viewTable"));
-        viewMenu.add(viewTableMI);
-        
+                
         JMenu entryMenu = MnemonicHelper.createMenu( resources.getString("menu.entry"));
         menuBar.add(entryMenu);
         JMenuItem addMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.newEntry"));
@@ -826,6 +752,7 @@ public class Controller {
         panel.setLayout(layout);
         JScrollPane scrollPane = new JScrollPane( displayEditor );
         scrollPane.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
+        scrollPane.setViewportView(  entryTable );       
 
         GroupLayout.ParallelGroup hg = layout.createParallelGroup();
         layout.setHorizontalGroup(hg);
@@ -860,21 +787,11 @@ public class Controller {
         return panel;
     }
     
-    private void createEntryList( Display displayOpts, Fretboard fretboard ) {
-        // Model set later on.
-        entryList = new JList<ExtendedDisplayEntry>();
-        entryListCellRenderer = new EntryListCellRenderer( displayOpts, fretboard );
-        entryList.setCellRenderer( entryListCellRenderer );
-        entryListAdapter = new JListListControllerAdapter<ExtendedDisplayEntry>(listController, entryList);
-        entryList.setPrototypeCellValue(new ExtendedDisplayEntry());
-        CutCopyPasteHelper.registerCutCopyPasteBindings(entryList);
-        CutCopyPasteHelper.setPasteEnabled(entryList, true);
-    }
-    
     private void createEntryTable() {
         entryTable = new JTable();
         entryTable.setFillsViewportHeight(true);
         entryTable.setAutoCreateRowSorter(true);
+        entryTable.setSize( 400, 100 );
         
     	// JTableListControllerAdapter(ListController<T> controller, JTable table) {
         entryTableAdapter = new JTableListControllerAdapter<ExtendedDisplayEntry>(listController, entryTable);
@@ -1087,10 +1004,7 @@ public class Controller {
         largeImagePanel.setImage( getLargeImage( selectedEntry ) );    
         if (null != selectedEntry) {
         	selectedEntry.setMember( "Root", rootText );
-        	selectedEntry.setMember( "Formula", formula );
-        	entryList.validate();
-        	entryListCellRenderer.validate();
-        	
+        	selectedEntry.setMember( "Formula", formula );        	
         }
 	}
     
@@ -1121,11 +1035,7 @@ public class Controller {
             // Only allow editing one value.
             disableControls();
             selectedEntry = null;
-            if (entryList != null) {
-            	entryList.repaint();
-            } else {
-            	entryTable.repaint();
-            }
+           	entryTable.repaint();
             
             // And give the root editor.
             rootEditor.requestFocus();
@@ -1161,8 +1071,6 @@ public class Controller {
         
         // textfields are now in sync with selection, any changes from the UI
         programmaticChange = false;
-        
-        updateCutCopyPasteForEntryView();
     }
 
     public static int [] scanScore( String scoreString ) {
