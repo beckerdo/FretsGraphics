@@ -25,7 +25,6 @@ import frets.swing.model.ExtendedDisplayEntry;
 /**
  * ListCellRenderer for the DisplayEntrys. 
  * @deprecated - Too busy and too "dissociated" from data.
- * 
  */
 public final class EntryListCellRenderer extends JPanel implements ListCellRenderer {
 	private static final long serialVersionUID = 1L;

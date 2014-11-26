@@ -22,10 +22,12 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.StringTokenizer;
 
 import javax.swing.Action;
@@ -96,8 +98,12 @@ public class Controller {
     private Fretboard fretboard;
     private ChordRank ranker;
 
-    // Model for the app.
+    // Model for collection of ExtendedDisplayEntrys.
     private ListController<ExtendedDisplayEntry> listController;    
+    
+    // TODO Gut the listController and the entryTableAdapter
+    // Big model change
+    protected EntryTableModel entryTableModel = new EntryTableModel();
     
     // The selected entry
     private ExtendedDisplayEntry selectedEntry;
@@ -173,6 +179,7 @@ public class Controller {
 
         // Add the entry to the end of the list.
         add(Arrays.asList(entry), listController.getEntries().size());
+        entryTableModel.add(entry);
         
         // And give the root editor.
         rootEditor.requestFocus();
@@ -231,6 +238,7 @@ public class Controller {
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
     			add( variations , listController.getEntries().size());
+    			entryTableModel.addAll( variations );
         
     			// And give the root editor.
     			rootEditor.requestFocus();
@@ -249,6 +257,7 @@ public class Controller {
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
     			add( variations , listController.getEntries().size());
+    			entryTableModel.addAll( variations );
         
     			// And give the root editor.
     			rootEditor.requestFocus();
@@ -304,9 +313,7 @@ public class Controller {
         listController.getEntries().addAll(index, entries);
         listController.setSelection( entries );
        	entryTable.revalidate();
-        // entryTable.scrollRectToVisible(entryTable.getCellRect(index, 0, true));
-        
-
+        entryTable.scrollRectToVisible(entryTable.getCellRect(index, 0, true));
     }
     
     public void deleteSelection() {
@@ -328,6 +335,7 @@ public class Controller {
     public void deleteAll() {
         // Add the entry to the end of the list.
         listController.deleteAll();
+		entryTableModel.retainAll( Collections.emptyList() );
 
         disableControls();
         
@@ -512,31 +520,12 @@ public class Controller {
         JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
 		// createEntryTable();		
-        // entryTable = new JTable();
-        // entryTable.setFillsViewportHeight(true);
-        // entryTable.setAutoCreateRowSorter(true);
-        // entryTable.setSize( 400, 100 );
-        // entryTableAdapter = new JTableListControllerAdapter<ExtendedDisplayEntry>(listController, entryTable);
+        entryTable = new JTable( entryTableModel );
+        entryTable.setFillsViewportHeight(true);
+        entryTable.setAutoCreateRowSorter(true);
+        entryTable.setSize( 400, 100 );
+//         entryTableAdapter = new JTableListControllerAdapter<ExtendedDisplayEntry>(listController, entryTable);
 		
-        String[] columnNames = {"First Name",
-                "Last Name",
-                "Sport",
-                "# of Years",
-                "Vegetarian"};
-        Object[][] data = {
-        	    {"Kathy", "Smith",
-        	     "Snowboarding", new Integer(5), new Boolean(false)},
-        	    {"John", "Doe",
-        	     "Rowing", new Integer(3), new Boolean(true)},
-        	    {"Sue", "Black",
-        	     "Knitting", new Integer(2), new Boolean(false)},
-        	    {"Jane", "White",
-        	     "Speed reading", new Integer(20), new Boolean(true)},
-        	    {"Joe", "Brown",
-        	     "Pool", new Integer(10), new Boolean(false)}
-        	};
-
-        entryTable = new JTable(data, columnNames);
         entrySP.setViewportView( entryTable );             
 
         GroupLayout.ParallelGroup hGroup = 
