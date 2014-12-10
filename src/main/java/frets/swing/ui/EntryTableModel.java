@@ -1,5 +1,6 @@
 package frets.swing.ui;
 
+import java.util.Collection;
 import java.util.LinkedList;
 
 import javax.swing.event.TableModelEvent;
@@ -77,6 +78,128 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
         listenerList.remove(l);
 	}
 
+	// List interface (notifies JTable  of changes ). 
+	@Override
+	public boolean add(ExtendedDisplayEntry e) {
+		int row = this.size();
+		boolean val = super.add( e );
+	    fireTableRowsInserted( row, row );
+	    return val;
+	}
+	@Override 
+	public void add(int index, ExtendedDisplayEntry e) {
+		super.add( index, e );
+	    fireTableRowsInserted( index, index );	
+	}
+	@Override
+	public boolean addAll(Collection<? extends ExtendedDisplayEntry> c) {
+		if (( null == c ) || ( c.size() < 1 ))
+			return false;
+		int row = this.size();
+		boolean val = super.addAll( c );
+	    fireTableRowsInserted( row, row + c.size() - 1 );
+	    return val;
+	}
+	@Override
+	public boolean addAll(int index, Collection<? extends ExtendedDisplayEntry> c) {
+		if (( null == c ) || ( c.size() < 1 ))
+			return false;
+		boolean val = super.addAll( index, c );
+	    fireTableRowsInserted( index, index + c.size() - 1 );
+	    return val;
+	}
+	@Override 
+	public void addFirst(ExtendedDisplayEntry e) {
+		add( 0, e);
+	}
+	@Override 
+	public void addLast(ExtendedDisplayEntry e){
+		add( this.size(), e);
+		
+	}
+	@Override 
+	public void push(ExtendedDisplayEntry e) {
+		add( 0, e);
+	}
+
+	@Override
+    public void clear() {
+		super.clear();
+		fireTableDataChanged();
+	}
+	@Override
+	public boolean offer(ExtendedDisplayEntry e) {
+	   return add( e );
+	}
+	@Override
+	public boolean offerFirst(ExtendedDisplayEntry e) {
+	   add( 0, e );
+	   return true;
+	}
+	@Override
+	public boolean offerLast(ExtendedDisplayEntry e) {
+	   return add( e );
+	}
+	@Override
+	public ExtendedDisplayEntry poll() {
+		return remove( 0 );
+	}
+	@Override
+	public ExtendedDisplayEntry pollFirst() {
+		return remove( 0 );
+	}
+	@Override
+	public ExtendedDisplayEntry pollLast() {
+		return remove( this.size() - 1 );
+	}
+	@Override
+	public ExtendedDisplayEntry pop() {
+		return remove( 0 );
+	}
+	@Override
+	public ExtendedDisplayEntry remove() {
+		return remove( 0 );
+	}
+	@Override
+	public ExtendedDisplayEntry remove( int index) {
+		ExtendedDisplayEntry e = super.remove( index );
+	    fireTableRowsDeleted( index, index );
+		return e;
+	}
+	@Override
+	public ExtendedDisplayEntry removeFirst() {
+		return remove( 0 );
+	}
+	// @Override
+	public boolean removeFirstOccurence( Object o ) {
+		int loc = this.indexOf( o );
+		if ( -1 != loc ) {
+			remove( loc );
+			return true;
+		}			
+		return false;
+	}
+	@Override
+	public ExtendedDisplayEntry removeLast() {
+		return remove( this.size() - 1 );
+	}
+	// @Override
+	public boolean removeLastOccurence( Object o ) {
+		int loc = this.lastIndexOf( o );
+		if ( -1 != loc ) {
+			remove( loc );
+			return true;
+		}			
+		return false;
+	}
+
+	@Override
+	public ExtendedDisplayEntry set(int index, ExtendedDisplayEntry e ) {
+	   ExtendedDisplayEntry val = super.set( index, e );
+       fireTableRowsUpdated( index, index );
+	   return val;
+	}
+	
 	// Table changes
     public void fireTableChanged(TableModelEvent e) {
     	synchronized( listenerList ) {
@@ -85,4 +208,32 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
         }
     	}
     }	
+    
+    public void fireTableDataChanged() {
+        fireTableChanged(new TableModelEvent(this));
+    }
+
+    public void fireTableStructureChanged() {
+        fireTableChanged(new TableModelEvent(this, TableModelEvent.HEADER_ROW));
+    }
+
+    public void fireTableRowsInserted(int firstRow, int lastRow) {
+        fireTableChanged(new TableModelEvent(this, firstRow, lastRow,
+                             TableModelEvent.ALL_COLUMNS, TableModelEvent.INSERT));
+    }
+
+    public void fireTableRowsUpdated(int firstRow, int lastRow) {
+        fireTableChanged(new TableModelEvent(this, firstRow, lastRow,
+                             TableModelEvent.ALL_COLUMNS, TableModelEvent.UPDATE));
+    }
+
+    public void fireTableRowsDeleted(int firstRow, int lastRow) {
+        fireTableChanged(new TableModelEvent(this, firstRow, lastRow,
+                             TableModelEvent.ALL_COLUMNS, TableModelEvent.DELETE));
+    }
+
+    public void fireTableCellUpdated(int row, int column) {
+        fireTableChanged(new TableModelEvent(this, row, row, column));
+    }
+
 }

@@ -7,8 +7,6 @@ import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Image;
-import java.awt.KeyboardFocusManager;
-import java.awt.Rectangle;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
@@ -21,28 +19,20 @@ import java.io.IOException;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collections;
-import java.util.LinkedList;
 import java.util.List;
 import java.util.Random;
 import java.util.ResourceBundle;
-import java.util.Set;
 import java.util.StringTokenizer;
 
 import javax.swing.Action;
-import javax.swing.ButtonGroup;
 import javax.swing.GroupLayout;
 import javax.swing.JButton;
-import javax.swing.JComponent;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
-import javax.swing.JList;
 import javax.swing.JMenu;
 import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
-import javax.swing.JRadioButtonMenuItem;
 import javax.swing.JScrollPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
@@ -66,9 +56,6 @@ import swingextensions.swingx.DynamicAction;
 import swingextensions.swingx.JImagePanel;
 import swingextensions.swingx.MnemonicHelper;
 import swingextensions.swingx.app.Application;
-import swingextensions.swingx.binding.JListListControllerAdapter;
-import swingextensions.swingx.binding.JTableListControllerAdapter;
-import swingextensions.swingx.binding.ListController;
 import swingextensions.swingx.text.RegExStyler;
 import swingextensions.ui.AboutBox;
 import swingextensions.ui.BarChartVisualizer;
@@ -83,10 +70,12 @@ import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 
 // TODO - Continue comment clean up. Delete lines with // in column 1.
-// TODO - Table updates not reflected in details pane. Needs selection update notifications.
-// TODO - No table adds after sorting.
-// TODO - Delete selected causes excption
-// TODO - No filtering
+// TODO - Add filtering or remove completely.
+// TODO - Add custom controls/renderers for table entries.
+// TODO - Relink small image and large fret board to selected entry
+// TODO - Rrelink ranking to each table enttry
+// TODO - Redo score to be a weighted composite
+// TODO - All variations visible on one row. Up down variation controls. (Easiest ranking?)
 
 /**
  * The Controller for the Frets application. Controller gets its name
@@ -103,19 +92,14 @@ public class Controller {
     private Fretboard fretboard;
     private ChordRank ranker;
 
-    // Model for collection of ExtendedDisplayEntrys.
-//     private ListController<ExtendedDisplayEntry> listController;    
-   
     // The list of items displayed in the table.
     protected EntryTableModel entryTableModel;
+    protected JTable entryTable;    
     
     // The selected entry
     private ExtendedDisplayEntry selectedEntry;
     // PropertyChangeListener attached to each displayEntry
     private PropertyChangeListener selectedEntryChangeListener;
-
-    private JTable entryTable;    
-//    private JTableListControllerAdapter<ExtendedDisplayEntry> entryTableAdapter;
 
     // Shared entry fields
     private JTextField fretboardTF;
@@ -176,11 +160,10 @@ public class Controller {
     public void addEntry() {
         // Create the new entry, adding some default values.
         ExtendedDisplayEntry entry = randomEntry( 10 );
+       	System.out.println( "Controller.addEntry entry=" + entry );
 
         // Add the entry to the end of the list.
         entryTableModel.add(entry);
-       	entryTable.revalidate();
-        entryTable.repaint();
         
         // And give the root editor.
         rootEditor.requestFocus();
@@ -219,7 +202,7 @@ public class Controller {
             // Essentially this makes the loop end after one try.
             if ( -1 == scoreMax ) scoreMax = Integer.MAX_VALUE;
         }
-       	System.out.println( "Controller.randomEntry retryCount=" + retryCount );
+       	// System.out.println( "Controller.randomEntry retryCount=" + retryCount );
 
         entry.setMember( "Locations", locations.toString() );      
         entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
@@ -241,9 +224,6 @@ public class Controller {
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
     			entryTableModel.addAll( variations );
-    	        // entryTable.repaint();        
-    	       	entryTable.revalidate();
-    	        // entryTable.scrollRectToVisible(entryTable.getCellRect(firstSelection, 0, true));
     		}
 			// Focus on the root editor.
 			rootEditor.requestFocus();    		
@@ -262,9 +242,6 @@ public class Controller {
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
     			entryTableModel.addAll( variations );
-    	        // entryTable.repaint();        
-    	       	entryTable.revalidate();
-    	        // entryTable.scrollRectToVisible(entryTable.getCellRect(firstSelection, 0, true));
     		}
 			// Focus on the root editor.
 			rootEditor.requestFocus();
@@ -320,7 +297,6 @@ public class Controller {
     		selectedRow = entryTable.getSelectedRow();
     	}
     	if ( needsUpdate ) {
-	       	entryTable.revalidate();
             disableControls();        	  		
     	}
 		// Focus on the root editor.
@@ -328,12 +304,9 @@ public class Controller {
     }
     
     public void deleteAll() {
-        // Add the entry to the end of the list.
-		entryTableModel.retainAll( Collections.emptyList() );
+		entryTableModel.clear();
 
         disableControls();       
-       	entryTable.revalidate();
-        
         // And give the root editor.
         rootEditor.requestFocus();
     }
@@ -503,9 +476,9 @@ public class Controller {
 
         // Create table in a view port.
         entryTableModel = new EntryTableModel();
+		createEntryTable( entryTableModel ) ;		
         JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-		createEntryTable( entryTableModel ) ;		
         entrySP.setViewportView( entryTable );             
 
         GroupLayout.ParallelGroup hGroup = 
