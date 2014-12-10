@@ -52,7 +52,7 @@ public class RasterRenderer {
 	public static BufferedImage renderImage(Dimension size, Display displayOpts, Fretboard fretboard, ExtendedDisplayEntry entry) {
 		if (( null == size) || (size.width < 1) || (size.height < 1))
 			return null;
-    	System.out.println( "RasterRenderer.renderImage size=" + size );
+    	// System.out.println( "RasterRenderer.renderImage size=" + size );
 
 		// displayOpts.orientation = Orientation.VERTICAL;
 		// displayOpts.orientation = Orientation.HORIZONTAL;
