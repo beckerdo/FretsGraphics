@@ -30,10 +30,7 @@ import frets.swing.model.ExtendedDisplayEntry;
 /**
  * This class is able to render to graphical representations. 
  */
-
-// TODO - Add string width renderings based on octave.
 // TODO - Offset note so it appears slightly above the fret, not on it.
-// TODO - Fretboard inlay dot sometimes above fret.
 public class RasterRenderer { 
 	private static final long serialVersionUID = 1L;
 	public static final Shape upArrow = createArrow( 8, 8, 30, 270.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
@@ -126,15 +123,35 @@ public class RasterRenderer {
 	    }
 	    
 	    // Draw strings
-	    g2d.setColor( displayOpts.stringColor );
+	    Color brighterString = displayOpts.stringColor.brighter().brighter();
+	    System.out.println( "Brighter=" + brighterString );
 	    for( int stringi = displayOpts.displayAreaMin.getString(); stringi <= displayOpts.displayAreaMax.getString();  stringi++ ) {
+	    	int stringThickness = displayOpts.stringThickness;
+	    	// Mod string thickness for low octave strings.
+	    	Note openNote = fretboard.getString( stringi ).getOpenNote();
+	    	int openNoteOctave = openNote.getOctave();
+	    	switch ( openNoteOctave ) {
+	    		case 0: stringThickness *= 4; break; 
+	    		case 1: stringThickness *= 3; break; 
+	    		case 2: stringThickness *= 2; break; 
+	    	}
+	    	// System.out.println( "String " + stringi + ", octave=" + openNoteOctave + ", thickness=" + stringThickness );
+		    g2d.setColor( displayOpts.stringColor );
+	    	
 		    Point stringBase = getLocation( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) ); 
     		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
-    			for ( int t = -(displayOpts.stringThickness/2); t < (displayOpts.stringThickness/2); t++ ) {
+    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
+    				// if ((stringThickness > 2) && (t == 1)) { 
+    				//    g2d.setColor( brighterString );
+    				// }
     				g2d.drawLine( stringBase.x+t, fretMinStringMin.y, stringBase.x+t, fretMaxStringMax.y);
     			}
     		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
-    			for ( int t = -(displayOpts.stringThickness/2); t < (displayOpts.stringThickness/2); t++ ) {
+    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
+    				// if ((stringThickness > 2) && (t == 1)) { 
+    				//    g2d.setColor( brighterString );
+    				// }
+    				
     				g2d.drawLine( fretMinStringMin.x, stringBase.y+t, fretMaxStringMax.x, stringBase.y+t);
     			}
     		}
@@ -440,7 +457,7 @@ public class RasterRenderer {
                 	g2d.setColor( changeAlpha( Color.DARK_GRAY ));
 
 	    		// Check for fret greater or less than min or max display fret.
-	    		if (( location.getFret() >= displayOpts.displayAreaMin.getFret() ) &&
+	    		if (( location.getFret() > displayOpts.displayAreaMin.getFret() ) &&
 	    			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
 	    			// Inside fret window
 	    			Point point = getLocation( size, displayOpts, location.getString() + 0.5f, location.getFret() - 0.5f );	    			

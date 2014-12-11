@@ -68,7 +68,6 @@ import frets.swing.model.ExtendedDisplayEntry;
 // TODO - Add custom controls/renderers for table entries.
 // TODO - Redo score to be a weighted composite
 // TODO - All variations visible on one row (or perhaps hierarchy twister?). Up down variation controls. (Easiest ranking?)
-// TODO - Add default table 0 select after add or delete of element
 
 /**
  * The Controller for the Frets application. Controller gets its name
@@ -139,9 +138,9 @@ public class Controller {
         validateMaxScore();
 
         // Set a new focus.
-        int sel = entryTableModel.size();
-        if ( sel > 0 )
-           entryTable.setRowSelectionInterval( sel - 1, sel - 1 );
+    	int selectedRow = entryTable.getSelectedRow();
+    	if ( -1 == selectedRow )
+           entryTable.setRowSelectionInterval( 0, 0 );
     }
 
     public ExtendedDisplayEntry randomEntry( int scoreMax ) {
@@ -271,7 +270,9 @@ public class Controller {
     	}
     	if ( needsUpdate ) {
             validateMaxScore();
-            disableControls();        	  		
+            disableControls();
+            if ( entryTable.getRowCount() > 0 )
+               entryTable.setRowSelectionInterval( 0, 0 );
     	}
     }
     
@@ -374,7 +375,7 @@ public class Controller {
         JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         entrySP.setViewportView( entryTable );
-        entrySP.setSize( 600, 150 );
+        entrySP.setPreferredSize(new Dimension( 600, 200 ));
         
         JPanel topHalf = new JPanel();
         topHalf.setLayout( new BorderLayout() );
@@ -382,6 +383,7 @@ public class Controller {
         topHalf.add( "Center", entrySP );
         
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, topHalf, tabbedPane);
+        splitPane.setResizeWeight( 1.0 );
         frame.getContentPane().add( splitPane );
     }
     
