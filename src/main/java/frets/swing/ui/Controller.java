@@ -7,8 +7,6 @@ import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Image;
-import java.awt.event.ActionEvent;
-import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -23,7 +21,6 @@ import java.util.ResourceBundle;
 
 import javax.swing.Action;
 import javax.swing.GroupLayout;
-import javax.swing.JButton;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -31,6 +28,7 @@ import javax.swing.JMenuBar;
 import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
+import javax.swing.JSplitPane;
 import javax.swing.JTabbedPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
@@ -96,16 +94,10 @@ public class Controller {
     private JTextField rankerTF;
     private JTextField filterTF;
 
-    // Instance entry fields
-    private JImagePanel detailsImagePanel;
-    private NoteEditor rootEditor;
-    private JTextField formulaTF;
-    private JTextField notesTF;
-    private JTextField locationsTF;
-    private JTextField variationTF;
-    private JButton variationUp;
-    private JButton variationDown;
-    private JTextField scoreTF;
+    // Image display fields
+    private JImagePanel fretsDetailsPanel;
+    private JImagePanel fretsLargePanel;    
+    
     private BarChartVisualizer visualizer;
     private int maxSumScore = Integer.MIN_VALUE;
     private int minSumScore = Integer.MAX_VALUE;
@@ -115,23 +107,16 @@ public class Controller {
     private Display displayOpts = new Display();
     private DisplayEditor displayEditor = new DisplayEditor( displayOpts );
     
-    private JImagePanel largeImagePanel;    
-    
-    /** Disables cascading change updates when multiple controls need updating. */
-    protected boolean programmaticChange = false;
-    
     private static AboutBox aboutBox ;
     
     public Controller(JFrame host) {
     	System.out.println( "FretsController cons");
         
-        programmaticChange = true;
         createFrameComponents();
         createUI(host);
         createMenu(host);
         disableControls();
         host.pack();
-        programmaticChange = false;
         
         aboutBox = new AboutBox(
            resources.getString( "aboutBox.dialog.title" ),
@@ -149,12 +134,14 @@ public class Controller {
         // Create the new entry, adding some default values.
         ExtendedDisplayEntry entry = randomEntry( 10 );
        	System.out.println( "Controller.addEntry entry=" + entry );
-
         // Add the entry to the end of the list.
         entryTableModel.add(entry);
-        
-        // And give the root editor.
-        rootEditor.requestFocus();
+        validateMaxScore();
+
+        // Set a new focus.
+        int sel = entryTableModel.size();
+        if ( sel > 0 )
+           entryTable.setRowSelectionInterval( sel - 1, sel - 1 );
     }
 
     public ExtendedDisplayEntry randomEntry( int scoreMax ) {
@@ -212,9 +199,8 @@ public class Controller {
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
     			entryTableModel.addAll( variations );
+                validateMaxScore();
     		}
-			// Focus on the root editor.
-			rootEditor.requestFocus();    		
     	}
     }
 
@@ -230,9 +216,8 @@ public class Controller {
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
     			entryTableModel.addAll( variations );
+                validateMaxScore();
     		}
-			// Focus on the root editor.
-			rootEditor.requestFocus();
     	}
     }
 
@@ -285,18 +270,14 @@ public class Controller {
     		selectedRow = entryTable.getSelectedRow();
     	}
     	if ( needsUpdate ) {
+            validateMaxScore();
             disableControls();        	  		
     	}
-		// Focus on the root editor.
-		rootEditor.requestFocus();
     }
     
     public void deleteAll() {
 		entryTableModel.clear();
-
         disableControls();       
-        // And give the root editor.
-        rootEditor.requestFocus();
     }
     
     public void showAbout() {
@@ -305,25 +286,16 @@ public class Controller {
 
     // Disables the controls (e.g. after deleteAll or if an invalid entry has been selected) 
     public void disableControls() {
-        programmaticChange = true;
         fretboardTF.setEditable(false);
         rankerTF.setEditable(false);
         filterTF.setEditable(false);
         filterTF.setText("");
         
-        rootEditor.setEditable(false);
-        formulaTF.setEditable(false);
-        formulaTF.setText("");
-        notesTF.setEditable(false);
-        notesTF.setText("");
-        locationsTF.setEditable(false);
-        locationsTF.setText("");
-        variationTF.setEditable(false);
-        variationTF.setText("");
-        scoreTF.setEditable(false);
-        scoreTF.setText("");
-        detailsImagePanel.setImage(null);
-        // detailsImagePanel.setEditable(false);
+        fretsDetailsPanel.setImage(null);
+        fretsDetailsPanel.setEditable(false);
+        fretsLargePanel.setImage(null);
+        fretsLargePanel.setEditable(false);
+        
         visualizer.setColumns( new int [] { 0 } );
         visualizer.setAnimatesTransitions( true );
 
@@ -331,11 +303,6 @@ public class Controller {
         commentsTP.setEditable(false);
 
         displayEditor.setEditable(false);
-
-        largeImagePanel.setImage(null);
-        largeImagePanel.setEditable(false);
-        
-        programmaticChange = false;
     }
     
     // Returns true if the app can exit, false otherwise.
@@ -345,47 +312,17 @@ public class Controller {
     }
 
     private void createFrameComponents() {
-
         fretboardTF = new JTextField(15);
         rankerTF = new JTextField(15);
         filterTF = new JTextField(15);
         // filterTF.getDocument().addDocumentListener(new FilterDocumentHandler());
-        
-        rootEditor = new NoteEditor( NoteEditor.Style.HORIZONTAL );
-        formulaTF = createTF();
-        notesTF = createTF();
-        locationsTF = createTF();
-        variationTF = createTF();
-        variationUp = new JButton( "+" );
-        variationUp.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-       			String oldVariationText = variationTF.getText();
-       			// Only ask for change if the button was pressed and there is variation text.
-       			if (( null != oldVariationText ) && ( oldVariationText.length() > 0)) {
-       				// entryChanged( (ExtendedDisplayEntry) selectedEntry, "variationUp", oldVariationText, e.getActionCommand() );
-       			}
-            }
-        }); 
-        variationUp.setPreferredSize( new Dimension( 10, 10 ));
-        variationDown = new JButton( "-" );
-        variationDown.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-       			String oldVariationText = variationTF.getText();
-       			// Only ask for change if the button was pressed and there is variation text.
-       			if (( null != oldVariationText ) && ( oldVariationText.length() > 0)) {
-       				// entryChanged( (ExtendedDisplayEntry) selectedEntry, "variationDown", oldVariationText, e.getActionCommand() );
-       			}
-            }
-        }); 
-        variationDown.setPreferredSize( new Dimension( 10, 10 ));
-        scoreTF = createTF();
-        
-        detailsImagePanel = new JImagePanel();
+                
+        fretsDetailsPanel = new JImagePanel();
         // detailsImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
-        detailsImagePanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
-        detailsImagePanel.setPreferredSize(new Dimension(150, 150));
-        detailsImagePanel.setBackground(Color.WHITE);
-        detailsImagePanel.setOpaque(true);
+        fretsDetailsPanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
+        fretsDetailsPanel.setPreferredSize(new Dimension(150, 150));
+        fretsDetailsPanel.setBackground( displayOpts.backgroundColor );
+        fretsDetailsPanel.setOpaque(true);
         // detailsImagePanel.addPropertyChangeListener( new ImagePanelPropertyChangeHandler() );
         
         visualizer = new BarChartVisualizer();
@@ -396,75 +333,56 @@ public class Controller {
 
         commentsTP = new JTextPane();
 
-        largeImagePanel = new JImagePanel();
+        fretsLargePanel = new JImagePanel();
         // largeImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
-        largeImagePanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
-        largeImagePanel.setPreferredSize(new Dimension(600, 150));
-        largeImagePanel.setBackground(Color.WHITE);
-        largeImagePanel.setOpaque(true);
-        // largeImagePanel.addPropertyChangeListener( new ImagePanelPropertyChangeHandler() );        
+        fretsLargePanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
+        fretsLargePanel.setPreferredSize(new Dimension(600, 150));
+        fretsLargePanel.setBackground( displayOpts.backgroundColor );
+        fretsLargePanel.setOpaque(true);
     }
     
     private void createUI(JFrame frame) {
-        JTabbedPane tp = new JTabbedPane();
-        tp.addTab(Application.getResourceAsString("tab.details"), createDetailsPanel());
-        tp.addTab(Application.getResourceAsString("tab.large"), createLargePanel());
-        tp.addTab(Application.getResourceAsString("tab.comments"), null);
-        tp.addTab(Application.getResourceAsString("tab.display"), createDisplayEditorPanel());
-        tp.addChangeListener(new TabbedPaneChangeHandler(tp));
+        JTabbedPane tabbedPane = new JTabbedPane();
+        tabbedPane.addTab(Application.getResourceAsString("tab.details"), createDetailsPanel());
+        tabbedPane.addTab(Application.getResourceAsString("tab.comments"), null);
+        tabbedPane.addTab(Application.getResourceAsString("tab.display"), createDisplayEditorPanel());
+        tabbedPane.addChangeListener(new TabbedPaneChangeHandler(tabbedPane));
 
-        GroupLayout frameLayout = new GroupLayout(frame.getContentPane());
-        frame.setLayout(frameLayout);
-        frameLayout.setAutoCreateContainerGaps(true);
-        frameLayout.setAutoCreateGaps(true);
-
+        JPanel fixedPanel = new JPanel();
         JLabel fretboardLabel = new JLabel(resources.getString("label.fretboard"));
+        fixedPanel.add( fretboardLabel );
         String defaultFretboard = resources.getString("default.fretboard");
 		fretboard = Fretboard.instance.getInstance( defaultFretboard );
 		fretboardTF.setText( fretboard.getMetaDescription() );
 		fretboardTF.setEditable( false );
+        fixedPanel.add( fretboardTF );
         JLabel rankerLabel = new JLabel(resources.getString("label.ranker"));
+        fixedPanel.add( rankerLabel );
         String defaultRanker = resources.getString("default.ranker");
         // System.out.println ( "Formula ranker=\"" + defaultRanker + "\".");
 		ranker = ChordRank.instance.getInstance( defaultRanker );
 		rankerTF.setText( ranker.getMetaName() );
 		rankerTF.setEditable( false );
+        fixedPanel.add( rankerTF );
         JLabel filterLabel = new JLabel(resources.getString("label.filter"));
+        fixedPanel.add( filterLabel );
+        fixedPanel.add( filterTF );
 
         // Create table in a view port.
         entryTableModel = new EntryTableModel();
 		createEntryTable( entryTableModel ) ;		
         JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
-        entrySP.setViewportView( entryTable );             
-
-        GroupLayout.ParallelGroup hGroup = 
-        	frameLayout.createParallelGroup(GroupLayout.Alignment.LEADING);
-        hGroup.
-          addGroup(GroupLayout.Alignment.TRAILING, frameLayout.createSequentialGroup().
-            addComponent(fretboardLabel).
-            addComponent(fretboardTF, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE, Integer.MAX_VALUE). // min, pref, max
-            addComponent(rankerLabel).
-            addComponent(rankerTF, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE, Integer.MAX_VALUE).
-            addComponent(filterLabel).
-            addComponent(filterTF, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE, Integer.MAX_VALUE)).
-          addComponent(entrySP, 100, 600, Integer.MAX_VALUE ).
-          addComponent(tp);
-        frameLayout.setHorizontalGroup(hGroup);
+        entrySP.setViewportView( entryTable );
+        entrySP.setSize( 600, 150 );
         
-        GroupLayout.SequentialGroup vGroup = frameLayout.createSequentialGroup();
-        vGroup.
-          addGroup(frameLayout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-            addComponent(fretboardLabel).
-            addComponent(fretboardTF).
-            addComponent(rankerLabel).
-            addComponent(rankerTF).
-            addComponent(filterLabel).
-            addComponent(filterTF)).
-          addComponent(entrySP, 100, 280, Integer.MAX_VALUE).
-          addComponent(tp, GroupLayout.DEFAULT_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE);
-        frameLayout.setVerticalGroup(vGroup);
-        // ideally want 3 or more entries high.
+        JPanel topHalf = new JPanel();
+        topHalf.setLayout( new BorderLayout() );
+        topHalf.add( "North", fixedPanel );
+        topHalf.add( "Center", entrySP );
+        
+        JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, topHalf, tabbedPane);
+        frame.getContentPane().add( splitPane );
     }
     
     // Creates and populates the menu for the app
@@ -528,79 +446,16 @@ public class Controller {
     }
     
     private Component createDetailsPanel() {
-        JPanel imageWrapper = new JPanel(new BorderLayout());
-        imageWrapper.setOpaque(false);
-        imageWrapper.add(detailsImagePanel);
-        imageWrapper.setBorder(new DropShadowBorder(Color.BLACK, 0, 5, .5f, 12, false, true, true, true));
-        JPanel panel = new JPanel();
+        JPanel detailsWrapper = new JPanel(new BorderLayout());
+        detailsWrapper.setOpaque(false);
+        detailsWrapper.setBorder(new DropShadowBorder(Color.BLACK, 0, 5, .5f, 12, false, true, true, true));
+        detailsWrapper.add(fretsDetailsPanel);
+        detailsWrapper.add( "South", visualizer);
+
+        JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
-        
-        JLabel rootLabel = new JLabel(Application.getResourceAsString("label.root"));
-        JLabel formulaLabel = new JLabel(Application.getResourceAsString("label.formula"));
-        JLabel notesLabel = new JLabel(Application.getResourceAsString("label.notes"));
-        JLabel locationsLabel = new JLabel(Application.getResourceAsString("label.locations"));
-        JLabel variationLabel = new JLabel(Application.getResourceAsString("label.variation"));
-        JLabel scoreLabel = new JLabel(Application.getResourceAsString("label.score"));
-        
-        GroupLayout layout = new GroupLayout(panel);
-        layout.setAutoCreateContainerGaps(true);
-        layout.setAutoCreateGaps(true);
-        panel.setLayout(layout);
-        GroupLayout.SequentialGroup hg = layout.createSequentialGroup();
-        layout.setHorizontalGroup(hg);
-        hg.
-          addGroup(layout.createParallelGroup().
-             addComponent(imageWrapper, GroupLayout.PREFERRED_SIZE, GroupLayout.PREFERRED_SIZE, Integer.MAX_VALUE ).
-             addComponent(visualizer )).
-          addGroup(layout.createParallelGroup().
-            addComponent(rootLabel).
-            addComponent(formulaLabel).
-            addComponent(notesLabel).
-            addComponent(locationsLabel).
-            addComponent(variationLabel).
-            addComponent(scoreLabel)).
-          addGroup(layout.createParallelGroup().
-            addComponent(rootEditor, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE ).
-            addComponent(formulaTF, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE ).
-            addComponent(notesTF, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE ).
-            addComponent(locationsTF, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE ).
-            addGroup( layout.createSequentialGroup().
-            		addComponent(variationTF, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE ).
-            		addComponent(variationUp ).
-            		addComponent(variationDown )
-            ).
-            addComponent(scoreTF, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE )
-        );
-        
-        GroupLayout.ParallelGroup vg = layout.createParallelGroup();
-        layout.setVerticalGroup(vg);
-        vg.
-          addGroup(layout.createSequentialGroup().
-       		addComponent(imageWrapper, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Integer.MAX_VALUE).
-       		addComponent(visualizer)).
-          addGroup(layout.createSequentialGroup().
-            addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-              addComponent(rootLabel).
-              addComponent(rootEditor)).
-            addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-              addComponent(formulaLabel).
-              addComponent(formulaTF)).
-           addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-              addComponent(notesLabel).
-              addComponent(notesTF)).
-           addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-              addComponent(locationsLabel).
-              addComponent(locationsTF)).
-            addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-              addComponent(variationLabel).
-              addComponent(variationTF).
-              addComponent(variationUp).
-              addComponent(variationDown)
-              ).
-           addGroup(layout.createParallelGroup(GroupLayout.Alignment.BASELINE).
-              addComponent(scoreLabel).
-              addComponent(scoreTF))
-        );
+        panel.add(fretsLargePanel);
+        panel.add( "West", detailsWrapper);
         return panel;
     }
     
@@ -659,43 +514,15 @@ public class Controller {
         return panel;
     }
     
-    private Component createLargePanel() {
-        JPanel imageWrapper = new JPanel(new BorderLayout());
-        imageWrapper.setOpaque(false);
-        imageWrapper.add(largeImagePanel);
-        imageWrapper.setBorder(new DropShadowBorder(Color.BLACK, 0, 5, .5f, 12, false, true, true, true));
-        JPanel panel = new JPanel();
-        panel.setOpaque(false);
-        
-        GroupLayout layout = new GroupLayout(panel);
-        layout.setAutoCreateContainerGaps(true);
-        layout.setAutoCreateGaps(true);
-        panel.setLayout(layout);
-        GroupLayout.SequentialGroup hg = layout.createSequentialGroup();
-        layout.setHorizontalGroup(hg);
-        hg.addComponent(imageWrapper, 1, 1, Integer.MAX_VALUE );
-        
-        GroupLayout.ParallelGroup vg = layout.createParallelGroup();
-        layout.setVerticalGroup(vg);
-        vg.addComponent(imageWrapper, 1, 1, Integer.MAX_VALUE );
-        return panel;
-    }
-    
     protected  void createEntryTable( EntryTableModel entryTableModel) {
         entryTable = new JTable( entryTableModel );
         entryTable.setFillsViewportHeight(true);
         entryTable.setAutoCreateRowSorter(true);
         entryTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         entryTable.getSelectionModel().addListSelectionListener(new RowListener());
-        entryTable.setSize( 400, 100 );
-        
+
         CutCopyPasteHelper.registerCutCopyPasteBindings(entryTable);
         CutCopyPasteHelper.setPasteEnabled(entryTable, true);
-    }
-    
-    private JTextField createTF() {
-        JTextField tf = new JTextField(10);
-        return tf;
     }
     
     public Image getDetailsImage(ExtendedDisplayEntry selectedEntry) {
@@ -715,7 +542,7 @@ public class Controller {
             	LocationList locations = LocationList.parseString( locationString );
                 displayOpts.orientation = Orientation.VERTICAL;
             	displayOpts.setDisplayAreaStyleMinAperture( fretboard, locations, 5 ); // set window to 5 frets.
-            	image = RasterRenderer.renderImage( detailsImagePanel.getSize(), displayOpts, fretboard, selectedEntry );
+            	image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
             }
         }
         return image;
@@ -729,7 +556,7 @@ public class Controller {
     	largeDisplayOpts.orientation = Orientation.HORIZONTAL;
     	largeDisplayOpts.setDisplayAreaStyleMaxFretboard(fretboard);
     	largeDisplayOpts.showVariations = true;
-       	image = RasterRenderer.renderImage( largeImagePanel.getSize(), largeDisplayOpts, fretboard, selectedEntry );        	
+       	image = RasterRenderer.renderImage( fretsLargePanel.getSize(), largeDisplayOpts, fretboard, selectedEntry );        	
         return image;
     }
 
@@ -749,10 +576,9 @@ public class Controller {
             	int firstIndex = rows[ 0 ];
             	ExtendedDisplayEntry firstSelection = entryTableModel.get( firstIndex );
             	// System.out.println( "Row Listener firstSelection=" + firstSelection.toString());
-                detailsImagePanel.setImage( getDetailsImage( firstSelection ) );
-                largeImagePanel.setImage( getLargeImage( firstSelection ) );
+                fretsDetailsPanel.setImage( getDetailsImage( firstSelection ) );
+                fretsLargePanel.setImage( getLargeImage( firstSelection ) );
                 
-                validateMaxScore();
                 String scoreString = (String) firstSelection.getMember( "Score" );
                 // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
                 int [] scores = ChordRank.toScores( scoreString );
@@ -760,13 +586,12 @@ public class Controller {
                 visualizer.repaint();
             } else {
             	disableControls();
-                maxSumScore = Integer.MIN_VALUE;
-                minSumScore = Integer.MAX_VALUE;
             }
         }
     }
-    
-    private void outputSelection( StringBuffer output) {
+        
+    @SuppressWarnings("unused")
+	private void outputSelection( StringBuffer output) {
         output.append(String.format("Lead: %d, %d. ",
             entryTable.getSelectionModel().getLeadSelectionIndex(),
             entryTable.getColumnModel().getSelectionModel().getLeadSelectionIndex()));
@@ -783,19 +608,21 @@ public class Controller {
 	
     // Ensure the new list items update the max score.
     protected void validateMaxScore() {
-    	for ( ExtendedDisplayEntry entry : entryTableModel ) {
+        maxSumScore = Integer.MIN_VALUE;
+        minSumScore = Integer.MAX_VALUE;
+        for ( ExtendedDisplayEntry entry : entryTableModel ) {
      	    String scoreString = (String) entry.getMember( "Score" );
      	    int [] scores = ChordRank.toScores(scoreString);
      	    int sumScore = scores[ 0 ];
             if ( sumScore > maxSumScore ) { 
          	   maxSumScore = sumScore;
-         	   visualizer.setMaxValue( maxSumScore );
             }    		
             if ( sumScore < minSumScore ) { 
           	   minSumScore = sumScore;
-          	   visualizer.setMaxValue( maxSumScore );
              }    		
     	}
+  	    visualizer.setMaxValue( maxSumScore );
+  	    visualizer.setMaxValue( maxSumScore );
     }
 
     public final class TabbedPaneChangeHandler implements ChangeListener {
