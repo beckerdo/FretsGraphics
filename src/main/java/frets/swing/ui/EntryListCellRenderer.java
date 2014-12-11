@@ -18,6 +18,7 @@ import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 
 import swingextensions.ui.VerticalPercentileBar;
+import frets.main.ChordRank;
 import frets.main.Display;
 import frets.main.Fretboard;
 import frets.swing.model.ExtendedDisplayEntry;
@@ -147,7 +148,7 @@ public final class EntryListCellRenderer extends JPanel implements ListCellRende
         	
         String scoreString = (String) entry.getMember( "Score" );
         // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
-        int [] scores = Controller.scanScore( scoreString );
+        int [] scores = ChordRank.toScores(scoreString);
         int sumScore = scores[ 0 ];
         // The percentile is inverted since min is the best score, max is the worst score.
         // System.out.println( "EntryListCellRenderer sum=" + sumScore + ", min=" + minScore + ", max=" + maxScore);

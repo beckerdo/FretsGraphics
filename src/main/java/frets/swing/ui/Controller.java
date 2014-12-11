@@ -12,8 +12,6 @@ import java.awt.event.ActionListener;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.beans.PropertyChangeEvent;
-import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
 import java.net.URI;
@@ -22,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
 import java.util.ResourceBundle;
-import java.util.StringTokenizer;
 
 import javax.swing.Action;
 import javax.swing.GroupLayout;
@@ -39,14 +36,14 @@ import javax.swing.JTable;
 import javax.swing.JTextField;
 import javax.swing.JTextPane;
 import javax.swing.KeyStroke;
+import javax.swing.ListSelectionModel;
 import javax.swing.SwingUtilities;
 import javax.swing.border.EmptyBorder;
 import javax.swing.border.LineBorder;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
-import javax.swing.event.DocumentEvent;
-import javax.swing.event.DocumentListener;
-import javax.swing.text.Document;
+import javax.swing.event.ListSelectionEvent;
+import javax.swing.event.ListSelectionListener;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 
@@ -69,13 +66,11 @@ import frets.main.NoteList;
 import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 
-// TODO - Continue comment clean up. Delete lines with // in column 1.
 // TODO - Add filtering or remove completely.
 // TODO - Add custom controls/renderers for table entries.
-// TODO - Relink small image and large fret board to selected entry
-// TODO - Rrelink ranking to each table enttry
 // TODO - Redo score to be a weighted composite
-// TODO - All variations visible on one row. Up down variation controls. (Easiest ranking?)
+// TODO - All variations visible on one row (or perhaps hierarchy twister?). Up down variation controls. (Easiest ranking?)
+// TODO - Add default table 0 select after add or delete of element
 
 /**
  * The Controller for the Frets application. Controller gets its name
@@ -96,11 +91,6 @@ public class Controller {
     protected EntryTableModel entryTableModel;
     protected JTable entryTable;    
     
-    // The selected entry
-    private ExtendedDisplayEntry selectedEntry;
-    // PropertyChangeListener attached to each displayEntry
-    private PropertyChangeListener selectedEntryChangeListener;
-
     // Shared entry fields
     private JTextField fretboardTF;
     private JTextField rankerTF;
@@ -135,8 +125,6 @@ public class Controller {
     public Controller(JFrame host) {
     	System.out.println( "FretsController cons");
         
-        selectedEntryChangeListener = new SelectedEntryPropertyChangeHandler();
-
         programmaticChange = true;
         createFrameComponents();
         createUI(host);
@@ -315,23 +303,6 @@ public class Controller {
        aboutBox.show(SwingUtilities.getWindowAncestor(filterTF));
     }
 
-    // Ensure the new list items update the max score.
-    protected void validateMaxScore( List<ExtendedDisplayEntry> entries ) {
-    	for ( ExtendedDisplayEntry entry : entries ) {
-     	    String scoreString = (String) entry.getMember( "Score" );
-     	    int [] scores = Controller.scanScore(scoreString);
-     	    int sumScore = scores[ 0 ];
-            if ( sumScore > maxSumScore ) { 
-         	   maxSumScore = sumScore;
-         	   visualizer.setMaxValue( maxSumScore );
-            }    		
-            if ( sumScore < minSumScore ) { 
-          	   minSumScore = sumScore;
-          	   visualizer.setMaxValue( maxSumScore );
-             }    		
-    	}
-    }
-    
     // Disables the controls (e.g. after deleteAll or if an invalid entry has been selected) 
     public void disableControls() {
         programmaticChange = true;
@@ -352,7 +323,7 @@ public class Controller {
         scoreTF.setEditable(false);
         scoreTF.setText("");
         detailsImagePanel.setImage(null);
-        detailsImagePanel.setEditable(false);
+        // detailsImagePanel.setEditable(false);
         visualizer.setColumns( new int [] { 0 } );
         visualizer.setAnimatesTransitions( true );
 
@@ -374,38 +345,24 @@ public class Controller {
     }
 
     private void createFrameComponents() {
-        DocumentListener documentListener = new DocumentHandler();
 
         fretboardTF = new JTextField(15);
         rankerTF = new JTextField(15);
         filterTF = new JTextField(15);
-        filterTF.getDocument().addDocumentListener(new FilterDocumentHandler());
+        // filterTF.getDocument().addDocumentListener(new FilterDocumentHandler());
         
         rootEditor = new NoteEditor( NoteEditor.Style.HORIZONTAL );
-        // NoteEditor editor = new NoteEditor( NoteEditor.Style.PIANO );
-        rootEditor.addPropertyChangeListener( 
-        	new PropertyChangeListener() {
-        		@Override
-        		public void propertyChange(PropertyChangeEvent event) {
-        			Object source = event.getSource();
-        			System.out.println( "root note propertyChange source=" + source + ", oldValue=" + event.getOldValue() + ", newValue=" + event.getNewValue());
-        			// String propName = event.getPropertyName();
-                    entryChanged( (ExtendedDisplayEntry) selectedEntry, event.getPropertyName(), event.getOldValue(), event.getNewValue() );
-        		}                	
-        	}
-        );
-        
-        formulaTF = createTF(documentListener);
-        notesTF = createTF(documentListener);
-        locationsTF = createTF(documentListener);
-        variationTF = createTF(documentListener);
+        formulaTF = createTF();
+        notesTF = createTF();
+        locationsTF = createTF();
+        variationTF = createTF();
         variationUp = new JButton( "+" );
         variationUp.addActionListener(new ActionListener() {
             public void actionPerformed(ActionEvent e) {
        			String oldVariationText = variationTF.getText();
        			// Only ask for change if the button was pressed and there is variation text.
        			if (( null != oldVariationText ) && ( oldVariationText.length() > 0)) {
-       				entryChanged( (ExtendedDisplayEntry) selectedEntry, "variationUp", oldVariationText, e.getActionCommand() );
+       				// entryChanged( (ExtendedDisplayEntry) selectedEntry, "variationUp", oldVariationText, e.getActionCommand() );
        			}
             }
         }); 
@@ -416,12 +373,12 @@ public class Controller {
        			String oldVariationText = variationTF.getText();
        			// Only ask for change if the button was pressed and there is variation text.
        			if (( null != oldVariationText ) && ( oldVariationText.length() > 0)) {
-       				entryChanged( (ExtendedDisplayEntry) selectedEntry, "variationDown", oldVariationText, e.getActionCommand() );
+       				// entryChanged( (ExtendedDisplayEntry) selectedEntry, "variationDown", oldVariationText, e.getActionCommand() );
        			}
             }
         }); 
         variationDown.setPreferredSize( new Dimension( 10, 10 ));
-        scoreTF = createTF(documentListener);
+        scoreTF = createTF();
         
         detailsImagePanel = new JImagePanel();
         // detailsImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
@@ -676,12 +633,7 @@ public class Controller {
 		RegExStyler styler = new RegExStyler(commentsTP);
 		styler.addStyle("(http|ftp)://[_a-zA-Z0-9./~\\-]+", urlAttributes,
 				Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		if (selectedEntry == null) {
-			commentsTP.setEditable(false);
-		} else {
-			commentsTP.setText((String) selectedEntry.getMember("Comments"));
-		}
-		commentsTP.getDocument().addDocumentListener(new DocumentHandler());
+		// commentsTP.getDocument().addDocumentListener(new DocumentHandler());
 		commentsTP.addMouseListener(new NotesMouseHandler(styler));
 	}
 
@@ -733,15 +685,16 @@ public class Controller {
         entryTable = new JTable( entryTableModel );
         entryTable.setFillsViewportHeight(true);
         entryTable.setAutoCreateRowSorter(true);
+        entryTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
+        entryTable.getSelectionModel().addListSelectionListener(new RowListener());
         entryTable.setSize( 400, 100 );
         
         CutCopyPasteHelper.registerCutCopyPasteBindings(entryTable);
         CutCopyPasteHelper.setPasteEnabled(entryTable, true);
     }
     
-    private JTextField createTF(DocumentListener documentListener) {
+    private JTextField createTF() {
         JTextField tf = new JTextField(10);
-        tf.getDocument().addDocumentListener(documentListener);
         return tf;
     }
     
@@ -756,8 +709,8 @@ public class Controller {
     		  	throw new IllegalArgumentException( e );
     		}
         } else {
-      	    // System.out.println( "Controller formula=\"" + selectedEntry.getMember( "Formula" ) + "\", detailsImagePanel=" + detailsImagePanel.getSize());
-            String locationString = locationsTF.getText();
+        	String locationString = (String) selectedEntry.getMember("Locations");
+      	    // System.out.println( "Controller locations=\"" + locationString + "\", detailsImagePanel=" + detailsImagePanel.getSize());
             if (( null!= locationString ) && (locationString.length() > 0)) {
             	LocationList locations = LocationList.parseString( locationString );
                 displayOpts.orientation = Orientation.VERTICAL;
@@ -780,284 +733,71 @@ public class Controller {
         return image;
     }
 
-    private void filterChanged() {
-//        listController.setFilter(filterTF.getText());
-    }
-    
-    // Listener attached to JTextField's model. Takes a callback when appropriate.
-    public class DocumentHandler implements DocumentListener {
-        public void insertUpdate(DocumentEvent e) {
-            edited(e);
-        }
-
-        public void removeUpdate(DocumentEvent e) {
-            edited(e);
-        }
-
-        public void changedUpdate(DocumentEvent e) {
-            // TextFields can ignore this one.
-            System.out.println( "Document changed e=" + e );
-        }
-        
-        private void edited(DocumentEvent e) {
-            Document source = e.getDocument();
-            // Only propagate the change if the user is responsible.
-            if ( programmaticChange ) return;
-            if (fretboardTF.getDocument() == source) {
-               selectedEntry.setMember( "Fretboard", fretboardTF.getText());
-            } else if (rankerTF.getDocument() == source) {
-               selectedEntry.setMember( "Formula", formulaTF.getText());
-            } else if (formulaTF.getDocument() == source) {
-               selectedEntry.setMember( "Formula", formulaTF.getText());
-            } else if (notesTF.getDocument() == source) {
-               selectedEntry.setMember( "Notes", notesTF.getText());
-            } else if (locationsTF.getDocument() == source) {
-               selectedEntry.setMember( "Locations", locationsTF.getText());
-            } else if (variationTF.getDocument() == source) {
-               selectedEntry.setMember( "Variation", variationTF.getText());
-            } else if (scoreTF.getDocument() == source) {
-               selectedEntry.setMember( "Score", scoreTF.getText());
-            } else if (commentsTP != null && commentsTP.getDocument() == source) {
+	// Changed from selectionChangedModel to ListSelectionListener
+    private class RowListener implements ListSelectionListener {
+        public void valueChanged(ListSelectionEvent event) {
+            if (event.getValueIsAdjusting()) {
+                return;
+            }
+            
+            // StringBuffer output = new StringBuffer("RowListener: ");
+            // outputSelection( output );
+            // System.out.println( output.toString() );
+            
+            int [] rows = entryTable.getSelectedRows();
+            if ((null != rows) && ( rows.length > 0)) {
+            	int firstIndex = rows[ 0 ];
+            	ExtendedDisplayEntry firstSelection = entryTableModel.get( firstIndex );
+            	// System.out.println( "Row Listener firstSelection=" + firstSelection.toString());
+                detailsImagePanel.setImage( getDetailsImage( firstSelection ) );
+                largeImagePanel.setImage( getLargeImage( firstSelection ) );
+                
+                validateMaxScore();
+                String scoreString = (String) firstSelection.getMember( "Score" );
+                // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
+                int [] scores = ChordRank.toScores( scoreString );
+                visualizer.setColumns( scores );
+                visualizer.repaint();
+            } else {
+            	disableControls();
+                maxSumScore = Integer.MIN_VALUE;
+                minSumScore = Integer.MAX_VALUE;
             }
         }
     }
-
-    // PropertyChangeListener attached to the selected entry to track changes made to it.
-    public class SelectedEntryPropertyChangeHandler implements PropertyChangeListener {
-        public void propertyChange(PropertyChangeEvent e) {
-        	if ( e.getSource().getClass().isAssignableFrom( ExtendedDisplayEntry.class ) ) {
-               Object source = e.getSource();
-               entryChanged( (ExtendedDisplayEntry) source, e.getPropertyName(), e.getOldValue(), e.getNewValue());
-        	}
-        }
-    }
-
-    // Invoked when a property on the entry has changed.
-    // This may have triggered in one of two ways:
-    // 1. From the textfields we're displaying
-    // 2. From some other portion of the app
-    //
-    // Case 1 can be identified by one of the changingXXX fields. If it's true,
-    // we know the edit originated from us and there is no need to reset the 
-    // text in the textfield.
-    private void entryChanged(ExtendedDisplayEntry displayEntry, String propertyChanged, Object oldValue, Object newValueOrCommand ) {
-        if ( null == displayEntry ) return; // banging on empty UI        
-        assert (selectedEntry == displayEntry);
-        // Ignore unidentified property changes.
-        if ( null == propertyChanged ) return;        
-        // Ignore updates while some part of the program is updating.
-        if ( programmaticChange ) return;
-        
-        // A value in the selected entry has changed, update the UI.
-        programmaticChange = true;
-        System.out.println( "entryChanged progammaticChanged=" + programmaticChange + ", propertyChange=" + propertyChanged + ", oldValue=" + oldValue + ", newValue=" + newValueOrCommand );
-        if ("Fretboard".equals( propertyChanged )) {
-            fretboardTF.setText((String) displayEntry.getMember( "Fretboard" ));
-            // update all other fields
-        } else if (( "variationUp".equals( propertyChanged )) || ( "variationDown".equals( propertyChanged ))) {
-        	int delta = "variationUp".equals( propertyChanged ) ? 1 : -1;
-   			String variationText = variationTF.getText();
-   			// Only change if the button was pressed and there is variation text.
-   			if (( null != variationText ) && ( variationText.length() > 0)) {  	        	
-   	        	// Example variation String = "4/18 (011/233)"
-   	        	StringTokenizer st = new StringTokenizer( variationText, " /()" );
-   	        	int variationi = Integer.parseInt( st.nextToken() );
-   	        	int variationMax = Integer.parseInt( st.nextToken() );
-                int newvariationi = variationi + delta;
-                if ( newvariationi < 0 ) newvariationi += variationMax;
-                if ( newvariationi >= variationMax ) newvariationi -= variationMax;
-   	        	// System.out.println( "Requested " + propertyChanged + ", delta=" + delta + ", new value=" + newvariationi );
-   	            updateControls( displayEntry, 
-   	            	(String) displayEntry.getMember( "Root" ), (String) displayEntry.getMember( "Formula" ), 
-   	            	newvariationi );
-   			}
-        } else if (( NoteEditor.EVENT_NAME.equals( propertyChanged )) || ( "Formula".equals( propertyChanged ))) {
-        	// The note editor root note changed, or the formula text changed
-        	Note rootNote = rootEditor.getNote();
-        	if ( null != rootNote ) {
-        		String rootText = rootNote.toString();
-        		String formula = (String) displayEntry.getMember( "Formula" );
-        		updateControls( displayEntry, rootText, formula, RANDOM_VARIATION );
-        	}
-        } else if ("Variation".equals( propertyChanged )) {
-            variationTF.setText((String) displayEntry.getMember( "Variation" ));
-        } else if ("Comments".equals( propertyChanged )) {
-            commentsTP.setText((String) displayEntry.getMember( "Comments" ));
-            String imagePath = (String) displayEntry.getMember( "ImagePath" );
-            if (( null != imagePath ) && ( imagePath.length() > 0 )) {
-            	try {
-            		detailsImagePanel.setImagePath( new URI( imagePath ));
-            	} catch (URISyntaxException e) {
-            		e.printStackTrace();
-            	}
-        	} else {
-        		detailsImagePanel.setImage( null );
-        	}
-        }
-        programmaticChange = false;
-        // System.out.println( "entryChanged progammaticChanged=" + programmaticChange );
-    }
-
-    public void updateControls( ExtendedDisplayEntry displayEntry, String rootText, String formula, int variationi ) {
-    	// Guard against changes with nothing in view.
-    	if ((null == rootText ) || ( rootText.length() <= 0 ) || 
-    		( null == formula ) || ( formula.length() <= 0 )) return;
-    	System.out.println( "updateControls root=" + rootText + ", formula=" + formula );
-        Note root = new Note( rootText );
-
-        // Update other controls
-        NoteList notes = new NoteList();
-        notes.setRelative( root, formula );
-        String newNotes = notes.toString();
-        String oldNotes = notesTF.getText();
-        if ( !newNotes.equals( oldNotes )) {
-            displayEntry.setMember( "Notes", newNotes );
-            notesTF.setText( newNotes );            	
-        }
-
-        List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-        int permutations = Fretboard.getPermutationCount( variations );
-        if ( variationi == RANDOM_VARIATION ) {
-        	variationi = random.nextInt( permutations );
-        }
-        LocationList locations = Fretboard.getPermutation(variations, variationi);
-        String newLocations = locations.toString();
-        if ( !newLocations.equals( locationsTF.getText() )) {
-        	displayEntry.setMember( "Locations", newLocations );
-        	locationsTF.setText( newLocations );
-        }
-        
-        String newVariation = Fretboard.getPermutationString(variations, variationi);
-        if ( ! newVariation.equals( variationTF.getText() )) {
-            displayEntry.setMember( "Variation", newVariation );
-            variationTF.setText( newVariation );            	
-        }
-        		
-        String newScore = ranker.getScoreString(locations);
-        if ( !newScore.equals( scoreTF.getText() )) {
-            displayEntry.setMember( "Score", newScore );
-            scoreTF.setText( newScore );            	
-        }
-        
-        detailsImagePanel.setImage( getDetailsImage( selectedEntry ) );
-        largeImagePanel.setImage( getLargeImage( selectedEntry ) );    
-        if (null != selectedEntry) {
-        	selectedEntry.setMember( "Root", rootText );
-        	selectedEntry.setMember( "Formula", formula );        	
-        }
-	}
     
-    // PropertyChangeListener attached to the ListController. 
-    // Invokes selectionChanged when the 'selection' property changes.
-	@SuppressWarnings( "unchecked" )
-    public class ListControllerPropertyChangeListener implements PropertyChangeListener {
-        public void propertyChange(PropertyChangeEvent evt) {
-            if (evt.getPropertyName() == "selection") {
-                selectionChanged((List<ExtendedDisplayEntry>)evt.getOldValue());
-            }
+    private void outputSelection( StringBuffer output) {
+        output.append(String.format("Lead: %d, %d. ",
+            entryTable.getSelectionModel().getLeadSelectionIndex(),
+            entryTable.getColumnModel().getSelectionModel().getLeadSelectionIndex()));
+        output.append("Rows:");
+        for (int c : entryTable.getSelectedRows()) {
+            output.append(String.format(" %d", c));
         }
+        output.append(". Columns:");
+        for (int c : entryTable.getSelectedColumns()) {
+            output.append(String.format(" %d", c));
+        }
+        output.append(".");
+    }    
+	
+    // Ensure the new list items update the max score.
+    protected void validateMaxScore() {
+    	for ( ExtendedDisplayEntry entry : entryTableModel ) {
+     	    String scoreString = (String) entry.getMember( "Score" );
+     	    int [] scores = ChordRank.toScores(scoreString);
+     	    int sumScore = scores[ 0 ];
+            if ( sumScore > maxSumScore ) { 
+         	   maxSumScore = sumScore;
+         	   visualizer.setMaxValue( maxSumScore );
+            }    		
+            if ( sumScore < minSumScore ) { 
+          	   minSumScore = sumScore;
+          	   visualizer.setMaxValue( maxSumScore );
+             }    		
+    	}
     }
 
-    // Invoked when the selection in the list has changed
-    private void selectionChanged(List<ExtendedDisplayEntry> oldSelection) {
-    	System.out.println( "selectionChanges oldSelection=" + oldSelection );
-    	return;
-//        if (selectedEntry != null) {
-//            selectedEntry.setMember("Comments", commentsTP.getText());
-//            selectedEntry.removePropertyChangeListener(selectedEntryChangeListener);
-//        }
-//         List<ExtendedDisplayEntry> selection = listController.getSelection();
-        
-        // We're about to change the textfields.
-        // Ignore any change events originating from the text fields.
-//        programmaticChange = true;
-//        
-//        if (selection.size() < 1) {
-//            // Only allow editing one value.
-//            disableControls();
-//            selectedEntry = null;
-//           	entryTable.repaint();
-//            
-//            // And give the root editor.
-//            rootEditor.requestFocus();
-//        } else {
-//            // Only one value is selected, update the fields appropriately
-//            selectedEntry = selection.get(0);
-//            rootEditor.setEditable(true);
-//            rootEditor.setNote( new Note( (String) selectedEntry.getMember( "Root" ) ));
-//            formulaTF.setEditable(true);
-//            formulaTF.setText((String) selectedEntry.getMember( "Formula"));
-//            notesTF.setEditable(false);
-//            notesTF.setText((String) selectedEntry.getMember( "Notes"));
-//            locationsTF.setEditable(false);
-//            locationsTF.setText((String) selectedEntry.getMember( "Locations"));
-//            variationTF.setEditable(false);
-//            variationTF.setText((String) selectedEntry.getMember( "Variation" ));
-//            scoreTF.setEditable(false);
-//            scoreTF.setText((String) selectedEntry.getMember( "Score" ));
-//            String scoreString = (String) selectedEntry.getMember( "Score" );
-//            // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
-//            int [] scores = scanScore( scoreString );
-//            visualizer.setColumns( scores );
-//            detailsImagePanel.setBackground(Color.WHITE);
-//            detailsImagePanel.setImage( getDetailsImage(selectedEntry));
-//            largeImagePanel.setBackground(Color.WHITE);
-//            largeImagePanel.setImage( getLargeImage(selectedEntry));
-//            commentsTP.setEditable(true);
-//            commentsTP.setText((String) selectedEntry.getMember( "Comments" ));
-//            displayEditor.setEditable(true);
-//
-//            selectedEntry.addPropertyChangeListener(selectedEntryChangeListener);            
-//        }
-        
-        // textfields are now in sync with selection, any changes from the UI
-//        programmaticChange = false;
-    }
-
-    public static int [] scanScore( String scoreString ) {
-        // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
-    	if (( null == scoreString ) || ( scoreString.length() < 1 )) return new int [] { 0 };
-        StringTokenizer st = new StringTokenizer( scoreString, "=," );
-        st.nextToken();
-        int sum = Integer.parseInt( st.nextToken() );
-        // String sum = scanner.next();
-        st.nextToken();
-        st.nextToken();
-        int fret = Integer.parseInt( st.nextToken() );
-        st.nextToken();
-        int span = Integer.parseInt( st.nextToken() );
-        st.nextToken();
-        int skip = Integer.parseInt( st.nextToken() );
-        st.nextToken();
-        int same = Integer.parseInt( st.nextToken() );
-        int [] scores  = new int [] { sum, fret, span, skip, same }; 
-        return scores;
-    }
-
-    private final class FilterDocumentHandler implements DocumentListener {
-        public void insertUpdate(DocumentEvent e) {
-            filterChanged();
-        }
-
-        public void removeUpdate(DocumentEvent e) {
-            filterChanged();
-        }
-
-        public void changedUpdate(DocumentEvent e) {
-        }
-    }
-        
-//    public final static class FilteredEntryListController extends ListController<ExtendedDisplayEntry> {
-//
-//    	protected boolean includeEntry(ExtendedDisplayEntry entry, String filter) {
-//            String formula = (String) entry.getMember( "Formula" );
-//            if (formula != null && formula.toLowerCase().contains(filter)) {
-//                return true;
-//            }
-//            return false;
-//        }
-//    }
-        
     public final class TabbedPaneChangeHandler implements ChangeListener {
         private final JTabbedPane tp;
         

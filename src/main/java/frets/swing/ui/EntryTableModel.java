@@ -204,6 +204,7 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
     public void fireTableChanged(TableModelEvent e) {
     	synchronized( listenerList ) {
         for( TableModelListener listener : listenerList ) {
+        	// Really should be on its own thread so as not to slow the main table.
         	listener.tableChanged( e );
         }
     	}

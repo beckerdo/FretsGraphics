@@ -21,7 +21,6 @@ import frets.main.Display;
 import frets.main.Display.Hand;
 import frets.main.Display.NotPlayedLocation;
 import frets.main.Fretboard;
-import frets.main.Interval;
 import frets.main.Location;
 import frets.main.LocationList;
 import frets.main.Note;
@@ -31,6 +30,10 @@ import frets.swing.model.ExtendedDisplayEntry;
 /**
  * This class is able to render to graphical representations. 
  */
+
+// TODO - Add string width renderings based on octave.
+// TODO - Offset note so it appears slightly above the fret, not on it.
+// TODO - Fretboard inlay dot sometimes above fret.
 public class RasterRenderer { 
 	private static final long serialVersionUID = 1L;
 	public static final Shape upArrow = createArrow( 8, 8, 30, 270.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
