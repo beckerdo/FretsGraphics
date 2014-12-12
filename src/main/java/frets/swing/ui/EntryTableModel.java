@@ -39,8 +39,9 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
 	}
 
 	@Override
-	public boolean isCellEditable(int rowIndex, int columnIndex) {
-		// TODO Auto-generated method stub
+	public boolean isCellEditable(int row, int col) {
+		if ( col == 0 )
+			return true;
 		return false;
 	}
 
@@ -53,19 +54,20 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
 		ExtendedDisplayEntry value = super.get( rowIndex );
 		if ( columnIndex >= value.getMemberCount() )
 	       throw new IllegalArgumentException( "EntryTableModel colIndex=" + columnIndex );
-		return value.getMember(columnIndex );			
+		return value.getMember( columnIndex );			
 	}
 
 	@Override
-	public void setValueAt(Object aValue, int rowIndex, int columnIndex) {
+	public void setValueAt(Object aValue, int rowIndex, int colIndex) {
 		if (( rowIndex < 0 ) || ( rowIndex >= super.size() ))
 	       throw new IllegalArgumentException( "EntryTableModel rowIndex=" + rowIndex );
-		if ( columnIndex < 0 ) 
-	       throw new IllegalArgumentException( "EntryTableModel colIndex=" + columnIndex );
+		if ( colIndex < 0 ) 
+	       throw new IllegalArgumentException( "EntryTableModel colIndex=" + colIndex );
 		ExtendedDisplayEntry value = super.get( rowIndex );
-		if ( columnIndex >= value.getMemberCount() )
-	       throw new IllegalArgumentException( "EntryTableModel colIndex=" + columnIndex );
-		value.setMember(columnIndex, aValue);			
+		if ( colIndex >= value.getMemberCount() )
+	       throw new IllegalArgumentException( "EntryTableModel colIndex=" + colIndex );
+		System.out.println( "EntryTableModel.setValueAt row,col=" + rowIndex + "," + colIndex + ", type=" + aValue.getClass().getSimpleName() + ", val=" + aValue );
+		value.setMember(colIndex, aValue.toString());			
 	}
 
 	@Override

@@ -124,16 +124,16 @@ public class RasterRenderer {
 	    
 	    // Draw strings
 	    Color brighterString = displayOpts.stringColor.brighter().brighter();
-	    System.out.println( "Brighter=" + brighterString );
+	    // System.out.println( "Brighter=" + brighterString );
 	    for( int stringi = displayOpts.displayAreaMin.getString(); stringi <= displayOpts.displayAreaMax.getString();  stringi++ ) {
 	    	int stringThickness = displayOpts.stringThickness;
 	    	// Mod string thickness for low octave strings.
 	    	Note openNote = fretboard.getString( stringi ).getOpenNote();
 	    	int openNoteOctave = openNote.getOctave();
 	    	switch ( openNoteOctave ) {
-	    		case 0: stringThickness *= 4; break; 
-	    		case 1: stringThickness *= 3; break; 
-	    		case 2: stringThickness *= 2; break; 
+	    		case 0: stringThickness *= 3; break; 
+	    		case 1: stringThickness *= 2; break; 
+	    		case 2: stringThickness *= 1.5; break; 
 	    	}
 	    	// System.out.println( "String " + stringi + ", octave=" + openNoteOctave + ", thickness=" + stringThickness );
 		    g2d.setColor( displayOpts.stringColor );

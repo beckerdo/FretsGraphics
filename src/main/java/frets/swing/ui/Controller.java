@@ -42,6 +42,8 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.table.TableColumn;
+import javax.swing.table.TableColumnModel;
 import javax.swing.text.SimpleAttributeSet;
 import javax.swing.text.StyleConstants;
 
@@ -68,6 +70,8 @@ import frets.swing.model.ExtendedDisplayEntry;
 // TODO - Add custom controls/renderers for table entries.
 // TODO - Redo score to be a weighted composite
 // TODO - All variations visible on one row (or perhaps hierarchy twister?). Up down variation controls. (Easiest ranking?)
+// TODO - Context menus that will render frets image to file.
+// TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny. 
 
 /**
  * The Controller for the Frets application. Controller gets its name
@@ -522,6 +526,10 @@ public class Controller {
         entryTable.setAutoCreateRowSorter(true);
         entryTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
         entryTable.getSelectionModel().addListSelectionListener(new RowListener());
+        
+        TableColumnModel tcm = entryTable.getColumnModel();
+        TableColumn rootColumn = tcm.getColumn(0);
+        rootColumn.setCellEditor(new NoteTableEditor());
 
         CutCopyPasteHelper.registerCutCopyPasteBindings(entryTable);
         CutCopyPasteHelper.setPasteEnabled(entryTable, true);
