@@ -3,7 +3,6 @@ package frets.swing.ui;
 import javax.swing.AbstractCellEditor;
 import javax.swing.table.TableCellEditor;
 import javax.swing.JButton;
-import javax.swing.JColorChooser;
 import javax.swing.JDialog;
 import javax.swing.JTable;
 
@@ -22,7 +21,7 @@ public class NoteTableEditor extends AbstractCellEditor
     Note currentNote;
     
     JButton button;
-    NoteEditor noteEditor;
+    NotePanel notePanel;
     JDialog dialog;
 
     public NoteTableEditor() {
@@ -35,13 +34,13 @@ public class NoteTableEditor extends AbstractCellEditor
         button.setBorderPainted(false);
 
         //Set up the dialog that the button brings up.
-        noteEditor = new NoteEditor( NoteEditor.Style.PIANO );
+        notePanel = new NotePanel();
         // dialog = JColorChooser.createDialog(button,"Pick a Root Note",  true,  //modal
         //   noteEditor,
         //    this,  //OK button handler
         //    null); //no CANCEL button handler
-        dialog = NoteEditor.createDialog( button, "Pick a Root Note",  true,  //modal
-                noteEditor,
+        dialog = NotePanel.createDialog( button, "Pick a Root Note",  true,  //modal
+                notePanel,
                 this,  //OK button handler
                 null); //no CANCEL button handler
     }
@@ -54,14 +53,14 @@ public class NoteTableEditor extends AbstractCellEditor
         if (EDIT.equals(e.getActionCommand())) {
             // The user has clicked the cell, so bring up the dialog.
         	System.out.println( "NoteTableEditor.actionPerformed EDIT e=" + e);
-            noteEditor.setNote(currentNote);
+            notePanel.setNote(currentNote);
             dialog.setVisible(true);
 
             // Make the renderer reappear.
             fireEditingStopped();
         } else { // User pressed dialog's "OK" button.
         	System.out.println( "NoteTableEditor.actionPerformed notEDIT e=" + e);
-            currentNote = noteEditor.getNote();
+            currentNote = notePanel.getNote();
         }
     }
 

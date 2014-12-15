@@ -2,17 +2,42 @@ package frets.swing.ui;
 
 import java.awt.BorderLayout;
 import java.awt.Component;
+import java.awt.Container;
+import java.awt.Dialog;
+import java.awt.Dimension;
+import java.awt.FlowLayout;
+import java.awt.Frame;
+import java.awt.HeadlessException;
 import java.awt.LayoutManager;
+import java.awt.Window;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
+import java.awt.event.KeyEvent;
+import java.awt.event.WindowAdapter;
+import java.awt.event.WindowEvent;
 import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
+import java.io.Serializable;
+import java.util.Locale;
 
+import javax.swing.AbstractAction;
+import javax.swing.AbstractButton;
+import javax.swing.Action;
+import javax.swing.ActionMap;
+import javax.swing.InputMap;
+import javax.swing.JButton;
+import javax.swing.JComponent;
+import javax.swing.JDialog;
+import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JSpinner;
+import javax.swing.KeyStroke;
 import javax.swing.SpinnerModel;
 import javax.swing.SpinnerNumberModel;
+import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
@@ -94,7 +119,7 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 		// Object source = event.getSource();
 		String command = event.getActionCommand();
         // System.out.println( "actionPerformed source=" + source + ", command=" + command );					
-        System.out.println( "actionPerformed command=" + command );
+        System.out.println( "NotePanel.actionPerformed keyboard command=" + command );
 		Note oldNote = new Note( note );
         note.setValue( (new Note( command )).getValue() );
 		PropertyChangeEvent propEvent = new PropertyChangeEvent( note, EVENT_NAME, oldNote, note);
@@ -105,15 +130,15 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 	@Override
 	public void stateChanged(ChangeEvent event) {
 		Object source = event.getSource();
-		if ( source.getClass().isAssignableFrom( JSpinner.class )) {
+		if ( JSpinner.class.isAssignableFrom( source.getClass())) {
 			JSpinner spinner = (JSpinner) source;
-			System.out.println( "stateChanged value=" + spinner.getValue() );
+			System.out.println( "NotePanel.stateChanged spinner value=" + spinner.getValue() );
 			Note oldNote = new Note( note );
 			note.setOctave( ((SpinnerNumberModel)spinner.getModel()).getNumber().intValue() );
 			PropertyChangeEvent propEvent = new PropertyChangeEvent( note, EVENT_NAME, oldNote, note);
 			firePropertyChange( propEvent );
 		} else
-			System.out.println( "stateChanged source=" + source );				
+			System.out.println( "NotePanel.stateChanged source=" + source );				
 	}
 
     // Property support
@@ -153,5 +178,193 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 		    }
 		    super.addLayoutComponent(comp, constraints);
 		  }
-		}
+	}
+
+
+	@Override
+	/** Returns a minimum size for this component. */
+	public Dimension getMinimumSize() {
+		return new Dimension( 100, 75 );
+	}
+
+	@Override
+	/** Returns a minimum size for this component. */
+	public Dimension getPreferredSize() {
+		return getMinimumSize();
+	}
+
+	/** 
+	 * Create a dialog that can be used to edit tables, lists, etc. 
+     * @param c              the parent component for the dialog
+     * @param title          the title for the dialog
+     * @param modal          a boolean. When true, the remainder of the program
+     *                       is inactive until the dialog is closed.
+     * @param chooserPane    the note-editor to be placed inside the dialog. (This NoteEditor
+     * @param okListener     the ActionListener invoked when "OK" is pressed
+     * @param cancelListener the ActionListener invoked when "Cancel" is pressed
+     * @return a new dialog containing the color-chooser pane
+     * @exception HeadlessException if GraphicsEnvironment.isHeadless()
+     * returns true.	 * 
+	 * */
+    public static JDialog createDialog(Component c, String title, boolean modal,
+        NotePanel chooserPane, ActionListener okListener,
+        ActionListener cancelListener) throws HeadlessException {
+
+        Window window = NotePanel.getWindowForComponent(c);
+        NoteChooserDialog dialog;
+        if (window instanceof Frame) {
+        	System.out.println( "NoteEditor creating dialog for window");
+             dialog = new NoteChooserDialog((Frame)window, title, modal, c, chooserPane, okListener, cancelListener);
+        } else {
+        	System.out.println( "NoteEditor creating dialog for frame");
+             dialog = new NoteChooserDialog((Dialog)window, title, modal, c, chooserPane, okListener, cancelListener);
+        }
+        dialog.getAccessibleContext().setAccessibleDescription(title);
+        return dialog;
+    }
+    
+    public static Window getWindowForComponent(Component parentComponent)
+            throws HeadlessException {
+            if (parentComponent == null)
+                return JOptionPane.getRootFrame();
+            if (parentComponent instanceof Frame || parentComponent instanceof Dialog)
+                return (Window)parentComponent;
+            return NotePanel.getWindowForComponent(parentComponent.getParent());
+    }    	
+}
+
+/*
+ * Class which builds a note chooser dialog consisting of
+ * a NoteEditor with "Ok", "Cancel", and "Reset" buttons.
+ */
+class NoteChooserDialog extends JDialog {
+	
+    private Note initialNote;
+    private NotePanel chooserPane;
+    private JButton cancelButton;
+
+    public NoteChooserDialog(Dialog owner, String title, boolean modal,
+        Component c, NotePanel chooserPane,
+        ActionListener okListener, ActionListener cancelListener)
+        throws HeadlessException {
+        super(owner, title, modal);
+        initNoteChooserDialog(c, chooserPane, okListener, cancelListener);
+    }
+
+    public NoteChooserDialog(Frame owner, String title, boolean modal,
+        Component c, NotePanel chooserPane,
+        ActionListener okListener, ActionListener cancelListener)
+        throws HeadlessException {
+        super(owner, title, modal);
+        initNoteChooserDialog(c, chooserPane, okListener, cancelListener);
+    }
+
+    protected void initNoteChooserDialog(Component c, NotePanel chooserPane,
+        ActionListener okListener, ActionListener cancelListener) {
+        //setResizable(false);
+
+        this.chooserPane = chooserPane;
+
+        Locale locale = getLocale();
+        String okString = UIManager.getString("ColorChooser.okText", locale);
+        String cancelString = UIManager.getString("ColorChooser.cancelText", locale);
+        String resetString = UIManager.getString("ColorChooser.resetText", locale);
+
+        Container contentPane = getContentPane();
+        contentPane.setLayout(new BorderLayout());
+        contentPane.add(chooserPane, BorderLayout.CENTER);
+
+        /*
+         * Create Lower button panel
+         */
+        JPanel buttonPane = new JPanel();
+        buttonPane.setLayout(new FlowLayout(FlowLayout.CENTER));
+        JButton okButton = new JButton(okString);
+        getRootPane().setDefaultButton(okButton);
+        okButton.getAccessibleContext().setAccessibleDescription(okString);
+        okButton.setActionCommand("OK");
+        okButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                System.out.println( "AbstractButton OK fire e=" + e );
+                hide();
+            }
+        });
+        if (okListener != null) {
+            okButton.addActionListener(okListener);
+        }
+        buttonPane.add(okButton);
+
+        cancelButton = new JButton(cancelString);
+        cancelButton.getAccessibleContext().setAccessibleDescription(cancelString);
+
+        // The following few lines are used to register esc to close the dialog
+        Action cancelKeyAction = new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                AbstractButton ab = ((AbstractButton)e.getSource());
+                System.out.println( "AbstractButton cancel fire e=" + e );
+                // ab.fireActionPerformed(e);
+            }
+        };
+        KeyStroke cancelKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
+        InputMap inputMap = cancelButton.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
+        ActionMap actionMap = cancelButton.getActionMap();
+        if (inputMap != null && actionMap != null) {
+            inputMap.put(cancelKeyStroke, "cancel");
+            actionMap.put("cancel", cancelKeyAction);
+        }
+        // end esc handling
+
+        cancelButton.setActionCommand("cancel");
+        cancelButton.addActionListener(new ActionListener() {
+            public void actionPerformed(ActionEvent e) {
+                hide();
+            }
+        });
+        if (cancelListener != null) {
+            cancelButton.addActionListener(cancelListener);
+        }
+        buttonPane.add(cancelButton);
+
+        JButton resetButton = new JButton(resetString);
+        resetButton.getAccessibleContext().setAccessibleDescription(resetString);
+        resetButton.addActionListener(new ActionListener() {
+           public void actionPerformed(ActionEvent e) {
+               reset();
+           }
+        });
+        buttonPane.add(resetButton);
+        contentPane.add(buttonPane, BorderLayout.SOUTH);
+
+        pack();
+        setLocationRelativeTo(c);
+
+        this.addWindowListener(new Closer());
+    }
+
+    public void show() {
+    	System.out.println( "NoteEditor show");
+        initialNote = chooserPane.getNote();
+        super.show();
+    }
+
+    public void reset() {
+    	System.out.println( "NoteEditor reset");
+        chooserPane.setNote(initialNote);
+    }
+
+    class Closer extends WindowAdapter implements Serializable{
+        public void windowClosing(WindowEvent e) {
+            cancelButton.doClick(0);
+            Window w = e.getWindow();
+            w.hide();
+        }
+    }
+
+    static class DisposeOnClose extends ComponentAdapter implements Serializable{
+        public void componentHidden(ComponentEvent e) {
+            Window w = (Window)e.getComponent();
+            w.dispose();
+        }
+    }
+
 }
