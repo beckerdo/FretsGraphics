@@ -5,7 +5,6 @@ import java.awt.Component;
 import java.awt.Container;
 import java.awt.Dialog;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Frame;
 import java.awt.HeadlessException;
 import java.awt.LayoutManager;
@@ -21,14 +20,11 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.Serializable;
-import java.util.Locale;
 
 import javax.swing.AbstractAction;
-import javax.swing.AbstractButton;
 import javax.swing.Action;
 import javax.swing.ActionMap;
 import javax.swing.InputMap;
-import javax.swing.JButton;
 import javax.swing.JComponent;
 import javax.swing.JDialog;
 import javax.swing.JOptionPane;
@@ -207,8 +203,8 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
      * returns true.	 * 
 	 * */
     public static JDialog createDialog(Component c, String title, boolean modal,
-        NotePanel chooserPane, ActionListener okListener,
-        ActionListener cancelListener) throws HeadlessException {
+        NotePanel chooserPane, 
+        ActionListener okListener, ActionListener cancelListener) throws HeadlessException {
 
         Window window = NotePanel.getWindowForComponent(c);
         NoteChooserDialog dialog;
@@ -241,14 +237,13 @@ class NoteChooserDialog extends JDialog {
 	
     private Note initialNote;
     private NotePanel chooserPane;
-    private JButton cancelButton;
 
     public NoteChooserDialog(Dialog owner, String title, boolean modal,
         Component c, NotePanel chooserPane,
         ActionListener okListener, ActionListener cancelListener)
         throws HeadlessException {
         super(owner, title, modal);
-        initNoteChooserDialog(c, chooserPane, okListener, cancelListener);
+        initNoteChooserDialog(c, chooserPane);
     }
 
     public NoteChooserDialog(Frame owner, String title, boolean modal,
@@ -256,84 +251,41 @@ class NoteChooserDialog extends JDialog {
         ActionListener okListener, ActionListener cancelListener)
         throws HeadlessException {
         super(owner, title, modal);
-        initNoteChooserDialog(c, chooserPane, okListener, cancelListener);
+        initNoteChooserDialog(c, chooserPane);
     }
 
-    protected void initNoteChooserDialog(Component c, NotePanel chooserPane,
-        ActionListener okListener, ActionListener cancelListener) {
+    protected void initNoteChooserDialog(Component c, NotePanel chooserPane ) {
         //setResizable(false);
 
         this.chooserPane = chooserPane;
-
-        Locale locale = getLocale();
-        String okString = UIManager.getString("ColorChooser.okText", locale);
-        String cancelString = UIManager.getString("ColorChooser.cancelText", locale);
-        String resetString = UIManager.getString("ColorChooser.resetText", locale);
 
         Container contentPane = getContentPane();
         contentPane.setLayout(new BorderLayout());
         contentPane.add(chooserPane, BorderLayout.CENTER);
 
-        /*
-         * Create Lower button panel
-         */
-        JPanel buttonPane = new JPanel();
-        buttonPane.setLayout(new FlowLayout(FlowLayout.CENTER));
-        JButton okButton = new JButton(okString);
-        getRootPane().setDefaultButton(okButton);
-        okButton.getAccessibleContext().setAccessibleDescription(okString);
-        okButton.setActionCommand("OK");
-        okButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                System.out.println( "AbstractButton OK fire e=" + e );
-                hide();
-            }
-        });
-        if (okListener != null) {
-            okButton.addActionListener(okListener);
-        }
-        buttonPane.add(okButton);
-
-        cancelButton = new JButton(cancelString);
-        cancelButton.getAccessibleContext().setAccessibleDescription(cancelString);
-
-        // The following few lines are used to register esc to close the dialog
+        // The following few lines are used to register enter and escape to close the dialog
         Action cancelKeyAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                AbstractButton ab = ((AbstractButton)e.getSource());
-                System.out.println( "AbstractButton cancel fire e=" + e );
-                // ab.fireActionPerformed(e);
+                System.out.println( "AbstractAction cancel fire e=" + e );
+                hide();                
             }
         };
-        KeyStroke cancelKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);
-        InputMap inputMap = cancelButton.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);
-        ActionMap actionMap = cancelButton.getActionMap();
+        KeyStroke cancelKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);        
+        Action enterKeyAction = new AbstractAction() {
+            public void actionPerformed(ActionEvent e) {
+                System.out.println( "AbstractAction enter fire e=" + e );
+                hide();                
+            }
+        };
+        KeyStroke enterKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);                
+        InputMap inputMap = chooserPane.getInputMap(JComponent.WHEN_IN_FOCUSED_WINDOW);        
+        ActionMap actionMap = chooserPane.getActionMap();
         if (inputMap != null && actionMap != null) {
             inputMap.put(cancelKeyStroke, "cancel");
             actionMap.put("cancel", cancelKeyAction);
+            inputMap.put(enterKeyStroke, "enter");
+            actionMap.put("enter", enterKeyAction);
         }
-        // end esc handling
-
-        cancelButton.setActionCommand("cancel");
-        cancelButton.addActionListener(new ActionListener() {
-            public void actionPerformed(ActionEvent e) {
-                hide();
-            }
-        });
-        if (cancelListener != null) {
-            cancelButton.addActionListener(cancelListener);
-        }
-        buttonPane.add(cancelButton);
-
-        JButton resetButton = new JButton(resetString);
-        resetButton.getAccessibleContext().setAccessibleDescription(resetString);
-        resetButton.addActionListener(new ActionListener() {
-           public void actionPerformed(ActionEvent e) {
-               reset();
-           }
-        });
-        buttonPane.add(resetButton);
-        contentPane.add(buttonPane, BorderLayout.SOUTH);
 
         pack();
         setLocationRelativeTo(c);
@@ -342,19 +294,12 @@ class NoteChooserDialog extends JDialog {
     }
 
     public void show() {
-    	System.out.println( "NoteEditor show");
         initialNote = chooserPane.getNote();
         super.show();
     }
 
-    public void reset() {
-    	System.out.println( "NoteEditor reset");
-        chooserPane.setNote(initialNote);
-    }
-
     class Closer extends WindowAdapter implements Serializable{
         public void windowClosing(WindowEvent e) {
-            cancelButton.doClick(0);
             Window w = e.getWindow();
             w.hide();
         }
@@ -366,5 +311,4 @@ class NoteChooserDialog extends JDialog {
             w.dispose();
         }
     }
-
 }

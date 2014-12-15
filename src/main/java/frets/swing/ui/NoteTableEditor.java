@@ -14,8 +14,9 @@ import frets.main.Note;
 
 /** A Swing JTable editor that can provide a note value. */
 public class NoteTableEditor extends AbstractCellEditor
-                         implements TableCellEditor, ActionListener {
+    implements TableCellEditor, ActionListener {
 	private static final long serialVersionUID = 1L;
+	
     protected static final String EDIT = "edit";
 
     Note currentNote;
@@ -35,14 +36,10 @@ public class NoteTableEditor extends AbstractCellEditor
 
         //Set up the dialog that the button brings up.
         notePanel = new NotePanel();
-        // dialog = JColorChooser.createDialog(button,"Pick a Root Note",  true,  //modal
-        //   noteEditor,
-        //    this,  //OK button handler
-        //    null); //no CANCEL button handler
         dialog = NotePanel.createDialog( button, "Pick a Root Note",  true,  //modal
                 notePanel,
-                this,  //OK button handler
-                null); //no CANCEL button handler
+                this,  // OK button handler
+                this); // CANCEL button handler
     }
 
     /**
@@ -72,12 +69,15 @@ public class NoteTableEditor extends AbstractCellEditor
     // Implement the one method defined by TableCellEditor.
     public Component getTableCellEditorComponent(JTable table, Object value, boolean isSelected,
         int row, int column) {
-    	if ( null != value)
+    	if ( null != value) {
     	   System.out.println( "NoteTableEditor.getTableCellEditorComponent type=" + value.getClass().getSimpleName() + ", value=" + value );
-    	else 
+    	   String valString = (String) value;
+          	if ((null == currentNote) || (!value.equals( currentNote.toString()  ))) {
+          		currentNote = new Note( valString );
+          	}
+    	} else 
      	   System.out.println( "NoteTableEditor.getTableCellEditorComponent value=null" );
         // currentNote = (Note)value;
-        currentNote = new Note( (String) value );
         return button;
     }
 }
