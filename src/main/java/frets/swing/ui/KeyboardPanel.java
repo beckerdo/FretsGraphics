@@ -107,9 +107,12 @@ public class KeyboardPanel extends JLayeredPane implements ActionListener {
 		
 	/** Set the pressed state of all keys. */
 	public void setPressed( Note note ) {
+		String noteName = "null"; // Use this name to turn off notes.		
+		if ( null != note) 
+			noteName = note.getName(); // Use this name to turn on notes.
 		for( int i = 0; i < keys.length; i++ ) {
-			KeyComponent key = keys[ i ];
-			key.setPressed( note.equals( key.getNote() ));
+			KeyComponent key = keys[ i ];		
+			key.setPressed( noteName.equals( key.getNote().getName() ));
 		}
 	}
 	

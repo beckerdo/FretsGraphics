@@ -42,6 +42,8 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
+import javax.swing.event.TableModelEvent;
+import javax.swing.event.TableModelListener;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import javax.swing.text.SimpleAttributeSet;
@@ -375,6 +377,7 @@ public class Controller {
 
         // Create table in a view port.
         entryTableModel = new EntryTableModel();
+        entryTableModel.addTableModelListener( new FretsTableModelListener() );
 		createEntryTable( entryTableModel ) ;		
         JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
@@ -600,6 +603,62 @@ public class Controller {
         }
     }
         
+	// Changed from selectionChangedModel to ListSelectionListener
+    private class FretsTableModelListener implements TableModelListener {
+        public void tableChanged(TableModelEvent event) {
+            // StringBuffer output = new StringBuffer("RowListener: ");
+            // outputSelection( output );
+            // System.out.println( output.toString() );
+        	int type = event.getType();
+        	String typeStr = "unknown";
+        	switch ( type ) {
+        		case TableModelEvent.INSERT: typeStr = "insert"; break;
+        		case TableModelEvent.DELETE: typeStr = "delete"; break;
+        		case TableModelEvent.UPDATE: typeStr = "update"; break;
+        	}
+        	System.out.println( "Controller FretsTableModelListener type=" + typeStr +
+        			", row=" + event.getFirstRow() + ".." + event.getLastRow() +
+        			", col=" + event.getColumn() +
+        			", event=" + event );
+        	  int col = event.getColumn();
+        	  if ((type == TableModelEvent.UPDATE) && ( col >= 0) && ( col <= 1)) {
+        		  ExtendedDisplayEntry entry = entryTableModel.get( event.getFirstRow() );
+        		  updateEntry( entry );
+              	// System.out.println( "Row Listener firstSelection=" + firstSelection.toString());
+                  fretsDetailsPanel.setImage( getDetailsImage( entry ) );
+                  fretsLargePanel.setImage( getLargeImage( entry ) );
+                  
+                  String scoreString = (String) entry.getMember( "Score" );
+                  // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
+                  int [] scores = ChordRank.toScores( scoreString );
+                  visualizer.setColumns( scores );
+                  visualizer.repaint();
+        	  }
+            
+        }
+    }
+    
+    
+    protected void updateEntry( ExtendedDisplayEntry entry ){
+    	String root = (String) entry.getMember( "Root" );
+    	String formula = (String) entry.getMember( "Formula" );
+	    
+    	NoteList notes = new NoteList();
+	    notes.setRelative( new Note( root ), formula );
+	    entry.setMember( "Notes", notes.toString() );
+
+	    // Calculate other information fields.
+        List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+	    int permutations = Fretboard.getPermutationCount( variations );
+	    int variationi = random.nextInt( permutations );
+	    LocationList locations = Fretboard.getPermutation(variations, variationi);
+	    // scoreSum = ranker.getSum( locations );
+
+	    entry.setMember( "Locations", locations.toString() );      
+        entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
+        entry.setMember( "Score", ranker.getScoreString(locations) );    
+    }
+    
     @SuppressWarnings("unused")
 	private void outputSelection( StringBuffer output) {
         output.append(String.format("Lead: %d, %d. ",

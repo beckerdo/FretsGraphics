@@ -66,8 +66,11 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
 		ExtendedDisplayEntry value = super.get( rowIndex );
 		if ( colIndex >= value.getMemberCount() )
 	       throw new IllegalArgumentException( "EntryTableModel colIndex=" + colIndex );
-		System.out.println( "EntryTableModel.setValueAt row,col=" + rowIndex + "," + colIndex + ", type=" + aValue.getClass().getSimpleName() + ", val=" + aValue );
-		value.setMember(colIndex, aValue.toString());			
+		// System.out.println( "EntryTableModel.setValueAt row,col=" + rowIndex + "," + colIndex + ", type=" + aValue.getClass().getSimpleName() + 
+		//		", old val=" + value.getMember(colIndex) +
+		// 		", new val=" + aValue );
+		value.setMember(colIndex, aValue.toString());
+	    fireTableCellUpdated(rowIndex, colIndex);
 	}
 
 	@Override

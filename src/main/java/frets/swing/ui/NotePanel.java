@@ -33,7 +33,6 @@ import javax.swing.JSpinner;
 import javax.swing.KeyStroke;
 import javax.swing.SpinnerModel;
 import javax.swing.SpinnerNumberModel;
-import javax.swing.UIManager;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 
@@ -115,7 +114,7 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 		// Object source = event.getSource();
 		String command = event.getActionCommand();
         // System.out.println( "actionPerformed source=" + source + ", command=" + command );					
-        System.out.println( "NotePanel.actionPerformed keyboard command=" + command );
+        // System.out.println( "NotePanel.actionPerformed keyboard command=" + command );
 		Note oldNote = new Note( note );
         note.setValue( (new Note( command )).getValue() );
 		PropertyChangeEvent propEvent = new PropertyChangeEvent( note, EVENT_NAME, oldNote, note);
@@ -128,7 +127,7 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 		Object source = event.getSource();
 		if ( JSpinner.class.isAssignableFrom( source.getClass())) {
 			JSpinner spinner = (JSpinner) source;
-			System.out.println( "NotePanel.stateChanged spinner value=" + spinner.getValue() );
+			// System.out.println( "NotePanel.stateChanged spinner value=" + spinner.getValue() );
 			Note oldNote = new Note( note );
 			note.setOctave( ((SpinnerNumberModel)spinner.getModel()).getNumber().intValue() );
 			PropertyChangeEvent propEvent = new PropertyChangeEvent( note, EVENT_NAME, oldNote, note);
@@ -163,7 +162,9 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 
 	/** Stacks buttons vertically in number spinner. */
 	class SpinnerVerticalLayout extends BorderLayout {
-		  @Override 
+		protected static final long serialVersionUID = 1L;
+
+		@Override 
 		  public void addLayoutComponent(Component comp, Object constraints) {
 		    if("Editor".equals(constraints)) {
 		      constraints = "Center";
@@ -191,7 +192,7 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 
 	/** 
 	 * Create a dialog that can be used to edit tables, lists, etc. 
-     * @param c              the parent component for the dialog
+     * @param parent              the parent component for the dialog
      * @param title          the title for the dialog
      * @param modal          a boolean. When true, the remainder of the program
      *                       is inactive until the dialog is closed.
@@ -202,18 +203,18 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
      * @exception HeadlessException if GraphicsEnvironment.isHeadless()
      * returns true.	 * 
 	 * */
-    public static JDialog createDialog(Component c, String title, boolean modal,
+    public static NoteChooserDialog createDialog(Component parent, String title, boolean modal,
         NotePanel chooserPane, 
         ActionListener okListener, ActionListener cancelListener) throws HeadlessException {
 
-        Window window = NotePanel.getWindowForComponent(c);
+        Window window = NotePanel.getWindowForComponent(parent);
         NoteChooserDialog dialog;
         if (window instanceof Frame) {
         	System.out.println( "NoteEditor creating dialog for window");
-             dialog = new NoteChooserDialog((Frame)window, title, modal, c, chooserPane, okListener, cancelListener);
+             dialog = new NoteChooserDialog((Frame)window, title, modal, parent, chooserPane, okListener, cancelListener);
         } else {
         	System.out.println( "NoteEditor creating dialog for frame");
-             dialog = new NoteChooserDialog((Dialog)window, title, modal, c, chooserPane, okListener, cancelListener);
+             dialog = new NoteChooserDialog((Dialog)window, title, modal, parent, chooserPane, okListener, cancelListener);
         }
         dialog.getAccessibleContext().setAccessibleDescription(title);
         return dialog;
@@ -229,16 +230,17 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
     }    	
 }
 
-/*
- * Class which builds a note chooser dialog consisting of
- * a NoteEditor with "Ok", "Cancel", and "Reset" buttons.
+/**
+ * Builds a note chooser dialog consisting of a NotePanel and actions.
  */
 class NoteChooserDialog extends JDialog {
-	
-    private Note initialNote;
-    private NotePanel chooserPane;
+	private static final long serialVersionUID = 1L;
 
-    public NoteChooserDialog(Dialog owner, String title, boolean modal,
+	private Note initialNote;
+	private NotePanel chooserPane;
+	private String action;
+
+	public NoteChooserDialog(Dialog owner, String title, boolean modal,
         Component c, NotePanel chooserPane,
         ActionListener okListener, ActionListener cancelListener)
         throws HeadlessException {
@@ -247,14 +249,15 @@ class NoteChooserDialog extends JDialog {
     }
 
     public NoteChooserDialog(Frame owner, String title, boolean modal,
-        Component c, NotePanel chooserPane,
+        Component relativeTo, NotePanel chooserPane,
         ActionListener okListener, ActionListener cancelListener)
         throws HeadlessException {
         super(owner, title, modal);
-        initNoteChooserDialog(c, chooserPane);
+        initNoteChooserDialog(relativeTo, chooserPane);
     }
 
-    protected void initNoteChooserDialog(Component c, NotePanel chooserPane ) {
+    @SuppressWarnings("serial")
+	protected void initNoteChooserDialog(Component relativeTo, NotePanel chooserPane ) {
         //setResizable(false);
 
         this.chooserPane = chooserPane;
@@ -265,16 +268,18 @@ class NoteChooserDialog extends JDialog {
 
         // The following few lines are used to register enter and escape to close the dialog
         Action cancelKeyAction = new AbstractAction() {
-            public void actionPerformed(ActionEvent e) {
-                System.out.println( "AbstractAction cancel fire e=" + e );
-                hide();                
+			public void actionPerformed(ActionEvent e) {
+                // System.out.println( "AbstractAction cancel fire e=" + e );
+                setVisible( false );
+                action = "cancel";
             }
         };
         KeyStroke cancelKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ESCAPE, 0);        
         Action enterKeyAction = new AbstractAction() {
             public void actionPerformed(ActionEvent e) {
-                System.out.println( "AbstractAction enter fire e=" + e );
-                hide();                
+                // System.out.println( "AbstractAction enter fire e=" + e );
+                setVisible( false );      
+                action = "enter";
             }
         };
         KeyStroke enterKeyStroke = KeyStroke.getKeyStroke(KeyEvent.VK_ENTER, 0);                
@@ -288,24 +293,42 @@ class NoteChooserDialog extends JDialog {
         }
 
         pack();
-        setLocationRelativeTo(c);
-
+        setLocationRelativeTo(relativeTo);
         this.addWindowListener(new Closer());
     }
 
-    public void show() {
+    public String getAction() {
+		return action;
+	}
+
+	public void setAction(String action) {
+		this.action = action;
+	}
+
+    public Note getInitialNote() {
+		return initialNote;
+	}
+
+	public void setInitialNote(Note initialNote) {
+		this.initialNote = initialNote;
+	}
+
+    @SuppressWarnings("deprecation")
+	public void show() {
         initialNote = chooserPane.getNote();
-        super.show();
+        super.show(); // using setVisible causes stack overflow.
     }
 
+    @SuppressWarnings("serial")
     class Closer extends WindowAdapter implements Serializable{
         public void windowClosing(WindowEvent e) {
             Window w = e.getWindow();
-            w.hide();
+            w.setVisible( false );
         }
     }
 
-    static class DisposeOnClose extends ComponentAdapter implements Serializable{
+    @SuppressWarnings("serial")
+	static class DisposeOnClose extends ComponentAdapter implements Serializable{
         public void componentHidden(ComponentEvent e) {
             Window w = (Window)e.getComponent();
             w.dispose();
