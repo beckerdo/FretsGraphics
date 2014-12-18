@@ -31,6 +31,7 @@ import frets.swing.model.ExtendedDisplayEntry;
  * This class is able to render to graphical representations. 
  */
 // TODO - Offset note so it appears slightly above the fret, not on it.
+// TODO - String thicknesses, but it might need anti aliasing. Wound strings?
 public class RasterRenderer { 
 	private static final long serialVersionUID = 1L;
 	public static final Shape upArrow = createArrow( 8, 8, 30, 270.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up

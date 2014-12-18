@@ -21,6 +21,7 @@ import java.util.ResourceBundle;
 
 import javax.swing.Action;
 import javax.swing.GroupLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -72,6 +73,7 @@ import frets.swing.model.ExtendedDisplayEntry;
 // TODO - Add custom controls/renderers for table entries.
 // TODO - Redo score to be a weighted composite
 // TODO - All variations visible on one row (or perhaps hierarchy twister?). Up down variation controls. (Easiest ranking?)
+// TODO - Add all variables. Add 10 best variations.
 // TODO - Context menus that will render frets image to file.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny. 
 
@@ -83,7 +85,8 @@ import frets.swing.model.ExtendedDisplayEntry;
  */
 public class Controller {
 	public static final int RANDOM_VARIATION = -1;
-
+    public static final String ENTRY_NAME_DELIM = ",";
+	
 	protected static Random random = new Random();
     protected static ResourceBundle resources = Application.getInstance().getResourceBundle();
 
@@ -100,8 +103,8 @@ public class Controller {
     private JTextField filterTF;
 
     // Image display fields
-    private JImagePanel fretsDetailsPanel;
-    private JImagePanel fretsLargePanel;    
+    private JLabel fretsDetailsPanel;
+    private JLabel fretsLargePanel;    
     
     private BarChartVisualizer visualizer;
     private int maxSumScore = Integer.MIN_VALUE;
@@ -298,10 +301,10 @@ public class Controller {
         filterTF.setEditable(false);
         filterTF.setText("");
         
-        fretsDetailsPanel.setImage(null);
-        fretsDetailsPanel.setEditable(false);
-        fretsLargePanel.setImage(null);
-        fretsLargePanel.setEditable(false);
+        fretsDetailsPanel.setIcon( null );
+        fretsDetailsPanel.setToolTipText( null );
+        fretsLargePanel.setIcon( null );
+        fretsLargePanel.setToolTipText( null );
         
         visualizer.setColumns( new int [] { 0 } );
         visualizer.setAnimatesTransitions( true );
@@ -324,13 +327,14 @@ public class Controller {
         filterTF = new JTextField(15);
         // filterTF.getDocument().addDocumentListener(new FilterDocumentHandler());
                 
-        fretsDetailsPanel = new JImagePanel();
+        fretsDetailsPanel = new JLabel();
         // detailsImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
         fretsDetailsPanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
         fretsDetailsPanel.setPreferredSize(new Dimension(150, 150));
         fretsDetailsPanel.setBackground( displayOpts.backgroundColor );
         fretsDetailsPanel.setOpaque(true);
-        // detailsImagePanel.addPropertyChangeListener( new ImagePanelPropertyChangeHandler() );
+        fretsDetailsPanel.setToolTipText( null );
+        fretsDetailsPanel.addMouseListener(new PopupMenuListener( ));
         
         visualizer = new BarChartVisualizer();
         visualizer.setOpaque(false);
@@ -340,12 +344,14 @@ public class Controller {
 
         commentsTP = new JTextPane();
 
-        fretsLargePanel = new JImagePanel();
+        fretsLargePanel = new JLabel();
         // largeImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
         fretsLargePanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
         fretsLargePanel.setPreferredSize(new Dimension(600, 150));
         fretsLargePanel.setBackground( displayOpts.backgroundColor );
         fretsLargePanel.setOpaque(true);
+        fretsLargePanel.setToolTipText( null );
+        fretsLargePanel.addMouseListener(new PopupMenuListener());
     }
     
     private void createUI(JFrame frame) {
@@ -406,17 +412,17 @@ public class Controller {
             exitMI.addActionListener(new DynamicAction(Application.getInstance(), "exit"));
         }
         
-        JMenu editMenu = MnemonicHelper.createMenu( resources.getString("menu.edit"));
-        menuBar.add(editMenu);
-        JMenuItem cutMI = createMenuItem(editMenu, "menu.cut", CutCopyPasteHelper.getCutAction());
-        cutMI.setAccelerator(KeyStroke.getKeyStroke("ctrl X"));
-        editMenu.add(cutMI);
-        JMenuItem copyMI = createMenuItem(editMenu, "menu.copy", CutCopyPasteHelper.getCopyAction());
-        copyMI.setAccelerator(KeyStroke.getKeyStroke("ctrl C"));
-        editMenu.add(copyMI);
-        JMenuItem pasteMI = createMenuItem(editMenu, "menu.paste",CutCopyPasteHelper.getPasteAction());
-        pasteMI.setAccelerator(KeyStroke.getKeyStroke("ctrl V"));
-        editMenu.add(pasteMI);
+        // JMenu editMenu = MnemonicHelper.createMenu( resources.getString("menu.edit"));
+        // menuBar.add(editMenu);
+        // JMenuItem cutMI = createMenuItem(editMenu, "menu.cut", CutCopyPasteHelper.getCutAction());
+        // cutMI.setAccelerator(KeyStroke.getKeyStroke("ctrl X"));
+        // editMenu.add(cutMI);
+        // JMenuItem copyMI = createMenuItem(editMenu, "menu.copy", CutCopyPasteHelper.getCopyAction());
+        // copyMI.setAccelerator(KeyStroke.getKeyStroke("ctrl C"));
+        // editMenu.add(copyMI);
+        // JMenuItem pasteMI = createMenuItem(editMenu, "menu.paste",CutCopyPasteHelper.getPasteAction());
+        // pasteMI.setAccelerator(KeyStroke.getKeyStroke("ctrl V"));
+        // editMenu.add(pasteMI);
                 
         JMenu entryMenu = MnemonicHelper.createMenu( resources.getString("menu.entry"));
         menuBar.add(entryMenu);
@@ -441,6 +447,7 @@ public class Controller {
         createMenuItem(helpMenu, "menu.about", new DynamicAction(this, "showAbout"));        
     }
 
+    
     // Convenience to create a configure a JMenuItem.
     private JMenuItem createMenuItem(JMenu menu, String key, Action action) {
         JMenuItem mi;
@@ -574,12 +581,12 @@ public class Controller {
     }
 
 	// Changed from selectionChangedModel to ListSelectionListener
+    // Need to unify/refactor with selection model listener
     private class RowListener implements ListSelectionListener {
         public void valueChanged(ListSelectionEvent event) {
             if (event.getValueIsAdjusting()) {
                 return;
             }
-            
             // StringBuffer output = new StringBuffer("RowListener: ");
             // outputSelection( output );
             // System.out.println( output.toString() );
@@ -587,23 +594,32 @@ public class Controller {
             int [] rows = entryTable.getSelectedRows();
             if ((null != rows) && ( rows.length > 0)) {
             	int firstIndex = rows[ 0 ];
-            	ExtendedDisplayEntry firstSelection = entryTableModel.get( firstIndex );
-            	// System.out.println( "Row Listener firstSelection=" + firstSelection.toString());
-                fretsDetailsPanel.setImage( getDetailsImage( firstSelection ) );
-                fretsLargePanel.setImage( getLargeImage( firstSelection ) );
-                
-                String scoreString = (String) firstSelection.getMember( "Score" );
-                // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
-                int [] scores = ChordRank.toScores( scoreString );
-                visualizer.setColumns( scores );
-                visualizer.repaint();
+            	ExtendedDisplayEntry entry = entryTableModel.get( firstIndex );
+      		  	updateVisuals( entry );
             } else {
             	disableControls();
             }
         }
     }
         
+    @SuppressWarnings("unused")
+	private void outputSelection( StringBuffer output) {
+        output.append(String.format("Lead: %d, %d. ",
+            entryTable.getSelectionModel().getLeadSelectionIndex(),
+            entryTable.getColumnModel().getSelectionModel().getLeadSelectionIndex()));
+        output.append("Rows:");
+        for (int c : entryTable.getSelectedRows()) {
+            output.append(String.format(" %d", c));
+        }
+        output.append(". Columns:");
+        for (int c : entryTable.getSelectedColumns()) {
+            output.append(String.format(" %d", c));
+        }
+        output.append(".");
+    }    
+	
 	// Changed from selectionChangedModel to ListSelectionListener
+    // Need to unify/refactor with selection model listener
     private class FretsTableModelListener implements TableModelListener {
         public void tableChanged(TableModelEvent event) {
             // StringBuffer output = new StringBuffer("RowListener: ");
@@ -624,21 +640,13 @@ public class Controller {
         	  if ((type == TableModelEvent.UPDATE) && ( col >= 0) && ( col <= 1)) {
         		  ExtendedDisplayEntry entry = entryTableModel.get( event.getFirstRow() );
         		  updateEntry( entry );
-              	// System.out.println( "Row Listener firstSelection=" + firstSelection.toString());
-                  fretsDetailsPanel.setImage( getDetailsImage( entry ) );
-                  fretsLargePanel.setImage( getLargeImage( entry ) );
-                  
-                  String scoreString = (String) entry.getMember( "Score" );
-                  // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
-                  int [] scores = ChordRank.toScores( scoreString );
-                  visualizer.setColumns( scores );
-                  visualizer.repaint();
+        		  updateVisuals( entry );
         	  }
             
         }
     }
     
-    
+    /** Updates an entry from the root and the formula. */
     protected void updateEntry( ExtendedDisplayEntry entry ){
     	String root = (String) entry.getMember( "Root" );
     	String formula = (String) entry.getMember( "Formula" );
@@ -658,23 +666,23 @@ public class Controller {
         entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
         entry.setMember( "Score", ranker.getScoreString(locations) );    
     }
+
+    /** Updates the main display from an updated entry. */
+    protected void updateVisuals( ExtendedDisplayEntry entry ) {
+    	String entryText = getShortName( entry);
+
+    	fretsDetailsPanel.setIcon( new ImageIcon( getDetailsImage( entry ) ));
+        fretsDetailsPanel.setToolTipText( entryText );
+        fretsLargePanel.setIcon( new ImageIcon( getLargeImage( entry )) );
+        fretsLargePanel.setToolTipText( entryText );
+        
+        String scoreString = (String) entry.getMember( "Score" );
+        // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
+        int [] scores = ChordRank.toScores( scoreString );
+        visualizer.setColumns( scores );
+        visualizer.repaint();    	
+    }
     
-    @SuppressWarnings("unused")
-	private void outputSelection( StringBuffer output) {
-        output.append(String.format("Lead: %d, %d. ",
-            entryTable.getSelectionModel().getLeadSelectionIndex(),
-            entryTable.getColumnModel().getSelectionModel().getLeadSelectionIndex()));
-        output.append("Rows:");
-        for (int c : entryTable.getSelectedRows()) {
-            output.append(String.format(" %d", c));
-        }
-        output.append(". Columns:");
-        for (int c : entryTable.getSelectedColumns()) {
-            output.append(String.format(" %d", c));
-        }
-        output.append(".");
-    }    
-	
     // Ensure the new list items update the max score.
     protected void validateMaxScore() {
         maxSumScore = Integer.MIN_VALUE;
@@ -709,6 +717,7 @@ public class Controller {
         }
     }
     
+    /** Browses a URI from the clicked text. */
     public static final class NotesMouseHandler extends MouseAdapter {
         private final RegExStyler styler;
         
@@ -728,5 +737,28 @@ public class Controller {
                 }
             }
         }
+    }
+    
+    /** 
+     * Returns a short string for the entry or null.
+     * Keeps the name file system safe by not using special chars "/" or " ".
+     */
+    public final static String getShortName( ExtendedDisplayEntry entry ) {
+    	if ( null == entry )
+    		return null;
+    	StringBuilder sb = new StringBuilder( );
+    	sb.append( entry.getMember("Root") );
+		sb.append( ENTRY_NAME_DELIM );
+		sb.append( entry.getMember("Formula"));
+		sb.append( ENTRY_NAME_DELIM );
+		// Example variation string "6/8 (012/124)"
+	    String variation = 	(String) entry.getMember("Variation");
+	    if ( null != variation ) {
+	    	variation = variation.substring( 0, variation.indexOf( ' ' ));
+	    	variation = variation.replace('/',  '-' );
+	    	sb.append( variation );
+	    }        	    
+		// Example string "G2,R-3-5,6-8"
+   	    return sb.toString();
     }
 }

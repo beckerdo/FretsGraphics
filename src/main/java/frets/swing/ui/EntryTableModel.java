@@ -40,7 +40,7 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
 
 	@Override
 	public boolean isCellEditable(int row, int col) {
-		if ( col == 0 )
+		if ( col <= 1 )
 			return true;
 		return false;
 	}
@@ -83,7 +83,7 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
         listenerList.remove(l);
 	}
 
-	// List interface (notifies JTable  of changes ). 
+	// List interface (notifies JTable of changes). 
 	@Override
 	public boolean add(ExtendedDisplayEntry e) {
 		int row = this.size();
