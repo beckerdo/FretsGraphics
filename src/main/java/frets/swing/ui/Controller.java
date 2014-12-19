@@ -68,8 +68,8 @@ import frets.main.NoteList;
 import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 
+// TODO - Find best scoring variation. LEFT DOUBLECLK=random RIGHT DOUBLECLK=minimum? New API to fretboard?
 // TODO - Add filtering or remove completely.
-// TODO - Add custom controls/renderers for variation
 // TODO - Redo score to be a weighted composite
 // TODO - All variations visible on one row (or perhaps hierarchy twister?). 
 // TODO - Add all variations. Add 10 best variations. Check to not dup the current row.
