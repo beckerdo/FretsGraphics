@@ -53,7 +53,6 @@ import javax.swing.text.StyleConstants;
 import swingextensions.swingx.CutCopyPasteHelper;
 import swingextensions.swingx.DropShadowBorder;
 import swingextensions.swingx.DynamicAction;
-import swingextensions.swingx.JImagePanel;
 import swingextensions.swingx.MnemonicHelper;
 import swingextensions.swingx.app.Application;
 import swingextensions.swingx.text.RegExStyler;
@@ -70,11 +69,10 @@ import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 
 // TODO - Add filtering or remove completely.
-// TODO - Add custom controls/renderers for table entries.
+// TODO - Add custom controls/renderers for variation
 // TODO - Redo score to be a weighted composite
 // TODO - All variations visible on one row (or perhaps hierarchy twister?). Up down variation controls. (Easiest ranking?)
 // TODO - Add all variables. Add 10 best variations.
-// TODO - Context menus that will render frets image to file.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny. 
 
 /**
@@ -754,9 +752,10 @@ public class Controller {
 		// Example variation string "6/8 (012/124)"
 	    String variation = 	(String) entry.getMember("Variation");
 	    if ( null != variation ) {
-	    	variation = variation.substring( 0, variation.indexOf( ' ' ));
-	    	variation = variation.replace('/',  '-' );
-	    	sb.append( variation );
+		    int [] values = Fretboard.getPermutationValues(variation);
+		    if ( null != values ) {
+		    	sb.append( values[ 0 ] + "-" + values[ 1 ] );		    	
+		    }
 	    }        	    
 		// Example string "G2,R-3-5,6-8"
    	    return sb.toString();

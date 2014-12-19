@@ -55,7 +55,7 @@ public class PopupMenuAction extends JPopupMenu implements ActionListener {
 		Object source = event.getSource();
 		String command = event.getActionCommand();
 		Component invoker = this.getInvoker();
-        System.out.println( "ImagePopupMenu.actionPerformed command=" + command + ", invoker=" + invoker);
+        // System.out.println( "PopupMenuAction.actionPerformed command=" + command + ", invoker=" + invoker);
         
         if ( JLabel.class.isAssignableFrom( invoker.getClass() )) {
         	JLabel jlabel = (JLabel) invoker;
@@ -72,6 +72,7 @@ public class PopupMenuAction extends JPopupMenu implements ActionListener {
             			fileName = "frets," + entryName + ".png";
             		try {
             			ImageIO.write(image, "png", new File( fileName ));
+                        System.out.println( "PopupMenuAction.actionPerformed save to \"" + fileName + "\"." );
             		} catch ( IOException e ) {
             			System.out.println( "PopupMenuAction exception: " + e );
             		}
