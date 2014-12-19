@@ -71,10 +71,9 @@ import frets.swing.model.ExtendedDisplayEntry;
 // TODO - Add filtering or remove completely.
 // TODO - Add custom controls/renderers for variation
 // TODO - Redo score to be a weighted composite
-// TODO - All variations visible on one row (or perhaps hierarchy twister?). Up down variation controls. (Easiest ranking?)
-// TODO - Add all variables. Add 10 best variations.
+// TODO - All variations visible on one row (or perhaps hierarchy twister?). 
+// TODO - Add all variations. Add 10 best variations. Check to not dup the current row.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny. 
-
 /**
  * The Controller for the Frets application. Controller gets its name
  * from the model view controller (MVC) pattern. Controller is responsible
@@ -382,7 +381,51 @@ public class Controller {
         // Create table in a view port.
         entryTableModel = new EntryTableModel();
         entryTableModel.addTableModelListener( new FretsTableModelListener() );
-		createEntryTable( entryTableModel ) ;		
+		createEntryTable( entryTableModel ) ;
+		// Add variation column listener
+		entryTable.addMouseListener(new java.awt.event.MouseAdapter() {
+		    @Override
+		    public void mouseClicked(MouseEvent evt) {
+		        int row = entryTable.rowAtPoint(evt.getPoint());
+		        int col = entryTable.columnAtPoint(evt.getPoint());
+		        if ((row >= 0 ) && (col == 4)) {
+		        	// System.out.println( "TableMouseListener.mouseClicked button" + evt.getButton() + ", row/col=" + row + "/" + col );
+		        	int modelRow = entryTable.convertRowIndexToModel( row );
+		        	if (( modelRow >= 0 ) && ( modelRow <= entryTableModel.size())) {
+		        		ExtendedDisplayEntry entry = (ExtendedDisplayEntry) entryTableModel.getRowAt( modelRow );
+		        		String variationStr = (String) entry.getMember( 4 ); // variation
+		        		if ( null != variationStr ) {
+		        			int [] values = Fretboard.getPermutationValues(variationStr);
+		        			int currentVar = values[ 0 ];
+		        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
+		        				// Decrement
+		        				currentVar -= 1;
+		        				if ( currentVar < 0 )
+		        					currentVar += values[ 1 ];
+		        			} else {
+		        				// Increment
+		        				currentVar += 1;
+		        				currentVar %= values[ 1 ];
+		        			}
+		        			
+		        			NoteList notes = NoteList.parse( (String) entry.getMember( "Notes") );
+		                	// Calculate other information fields.
+		        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+		                    LocationList locations = Fretboard.getPermutation(variations, currentVar );
+		                    
+		                    entry.setMember( "Locations", locations.toString() );      
+		                    entry.setMember( "Variation", Fretboard.getPermutationString(variations, currentVar) );
+		                    entry.setMember( "Score", ranker.getScoreString(locations) );
+		                    // System.out.println( "TableMouseListener.mouseClicked updating vari=" + values[ 0 ] + "/" + currentVar + ", entry=" + entry ); 
+                            entryTableModel.set(modelRow, entry);
+                            updateVisuals( entry );
+
+		        		}
+		        	}
+		        	
+		        }
+		    }
+		});
         JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         entrySP.setViewportView( entryTable );

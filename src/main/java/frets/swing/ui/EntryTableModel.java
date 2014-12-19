@@ -40,11 +40,16 @@ public class EntryTableModel extends LinkedList<ExtendedDisplayEntry> implements
 
 	@Override
 	public boolean isCellEditable(int row, int col) {
-		if ( col <= 1 )
+		// Allow table editing of root
+		if ( col <= 1 ) 
 			return true;
 		return false;
 	}
 
+	public Object getRowAt(int rowIndex ) {
+		return super.get( rowIndex );
+	}
+	
 	@Override
 	public Object getValueAt(int rowIndex, int columnIndex) {
 		if (( rowIndex < 0 ) || ( rowIndex >= super.size() ))
