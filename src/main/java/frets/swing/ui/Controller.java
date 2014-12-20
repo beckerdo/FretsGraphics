@@ -7,6 +7,7 @@ import java.awt.Cursor;
 import java.awt.Desktop;
 import java.awt.Dimension;
 import java.awt.Image;
+import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -69,9 +70,9 @@ import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 
 // TODO - Find best scoring variation. LEFT DOUBLECLK=random RIGHT DOUBLECLK=minimum? New API to fretboard?
+// TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
 // TODO - Add filtering or remove completely.
 // TODO - Redo score to be a weighted composite
-// TODO - All variations visible on one row (or perhaps hierarchy twister?). 
 // TODO - Add all variations. Add 10 best variations. Check to not dup the current row.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny. 
 /**
@@ -83,8 +84,16 @@ import frets.swing.model.ExtendedDisplayEntry;
 public class Controller {
 	public static final int RANDOM_VARIATION = -1;
     public static final String ENTRY_NAME_DELIM = ",";
-	
-	protected static Random random = new Random();
+    
+    // A hack, but better than hard coding.
+    public static final int ROOT_COL = 0;
+    public static final int FORMULA_COL = 1;
+    public static final int NOTES_COL = 2;
+    public static final int LOCATIONS_COL = 3;
+    public static final int VARIATIONS_COL = 4;
+    public static final int SCORE_COL = 5;
+
+    protected static Random random = new Random();
     protected static ResourceBundle resources = Application.getInstance().getResourceBundle();
 
     private Fretboard fretboard;
@@ -112,7 +121,7 @@ public class Controller {
     private Display displayOpts = new Display();
     private DisplayEditor displayEditor = new DisplayEditor( displayOpts );
     
-    private static AboutBox aboutBox ;
+    private static AboutBox aboutBox;
     
     public Controller(JFrame host) {
     	System.out.println( "FretsController cons");
@@ -383,49 +392,7 @@ public class Controller {
         entryTableModel.addTableModelListener( new FretsTableModelListener() );
 		createEntryTable( entryTableModel ) ;
 		// Add variation column listener
-		entryTable.addMouseListener(new java.awt.event.MouseAdapter() {
-		    @Override
-		    public void mouseClicked(MouseEvent evt) {
-		        int row = entryTable.rowAtPoint(evt.getPoint());
-		        int col = entryTable.columnAtPoint(evt.getPoint());
-		        if ((row >= 0 ) && (col == 4)) {
-		        	// System.out.println( "TableMouseListener.mouseClicked button" + evt.getButton() + ", row/col=" + row + "/" + col );
-		        	int modelRow = entryTable.convertRowIndexToModel( row );
-		        	if (( modelRow >= 0 ) && ( modelRow <= entryTableModel.size())) {
-		        		ExtendedDisplayEntry entry = (ExtendedDisplayEntry) entryTableModel.getRowAt( modelRow );
-		        		String variationStr = (String) entry.getMember( 4 ); // variation
-		        		if ( null != variationStr ) {
-		        			int [] values = Fretboard.getPermutationValues(variationStr);
-		        			int currentVar = values[ 0 ];
-		        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
-		        				// Decrement
-		        				currentVar -= 1;
-		        				if ( currentVar < 0 )
-		        					currentVar += values[ 1 ];
-		        			} else {
-		        				// Increment
-		        				currentVar += 1;
-		        				currentVar %= values[ 1 ];
-		        			}
-		        			
-		        			NoteList notes = NoteList.parse( (String) entry.getMember( "Notes") );
-		                	// Calculate other information fields.
-		        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-		                    LocationList locations = Fretboard.getPermutation(variations, currentVar );
-		                    
-		                    entry.setMember( "Locations", locations.toString() );      
-		                    entry.setMember( "Variation", Fretboard.getPermutationString(variations, currentVar) );
-		                    entry.setMember( "Score", ranker.getScoreString(locations) );
-		                    // System.out.println( "TableMouseListener.mouseClicked updating vari=" + values[ 0 ] + "/" + currentVar + ", entry=" + entry ); 
-                            entryTableModel.set(modelRow, entry);
-                            updateVisuals( entry );
-
-		        		}
-		        	}
-		        	
-		        }
-		    }
-		});
+		entryTable.addMouseListener( new VariationMouseAdapter() );
         JScrollPane entrySP = new JScrollPane(entryTable);
         entrySP.setVerticalScrollBarPolicy(JScrollPane.VERTICAL_SCROLLBAR_ALWAYS);
         entrySP.setViewportView( entryTable );
@@ -546,7 +513,7 @@ public class Controller {
 		styler.addStyle("(http|ftp)://[_a-zA-Z0-9./~\\-]+", urlAttributes,
 				Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
 		// commentsTP.getDocument().addDocumentListener(new DocumentHandler());
-		commentsTP.addMouseListener(new NotesMouseHandler(styler));
+		// commentsTP.addMouseListener(new NotesMouseHandler(styler)); // looks up URIs in notes
 	}
 
     private Component createDisplayEditorPanel() {
@@ -571,8 +538,23 @@ public class Controller {
         return panel;
     }
     
-    protected  void createEntryTable( EntryTableModel entryTableModel) {
-        entryTable = new JTable( entryTableModel );
+    @SuppressWarnings("serial")
+	protected  void createEntryTable( EntryTableModel entryTableModel) {
+        entryTable = new JTable( entryTableModel ){
+            // Implement table cell tool tips.           
+            public String getToolTipText(MouseEvent e) {
+                String tip = null;
+                Point p = e.getPoint();
+                int rowIndex = rowAtPoint(p);
+                int colIndex = columnAtPoint(p);
+                switch ( colIndex ) {
+                   case ROOT_COL: return "Click to edit root note";
+                   case FORMULA_COL: return "Click to edit formula";
+                   case VARIATIONS_COL: return "Left/right click to change. Left double click for random. Right double click for best score.";
+                } // colIndex
+                return null;
+            }
+        };
         entryTable.setFillsViewportHeight(true);
         entryTable.setAutoCreateRowSorter(true);
         entryTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
@@ -758,28 +740,6 @@ public class Controller {
         }
     }
     
-    /** Browses a URI from the clicked text. */
-    public static final class NotesMouseHandler extends MouseAdapter {
-        private final RegExStyler styler;
-        
-        public NotesMouseHandler(RegExStyler styler) {
-            this.styler = styler;
-        }
-        
-        public void mouseClicked(MouseEvent e) {
-            String text = styler.getMatchingText(e, styler.getStyles().get(0));
-            // PENDING: make sure this works in webstart!
-            if (text != null && Desktop.isDesktopSupported()) {
-                try {
-                    Desktop.getDesktop().browse(new URI(text));
-                } catch (IOException ex) {
-                } catch (URISyntaxException ex) {
-                } catch (UnsupportedOperationException ex) {
-                }
-            }
-        }
-    }
-    
     /** 
      * Returns a short string for the entry or null.
      * Keeps the name file system safe by not using special chars "/" or " ".
@@ -803,4 +763,52 @@ public class Controller {
 		// Example string "G2,R-3-5,6-8"
    	    return sb.toString();
     }
+    
+    protected class VariationMouseAdapter extends MouseAdapter {
+	    @Override
+	    public void mouseClicked(MouseEvent evt) {
+	        int row = entryTable.rowAtPoint(evt.getPoint());
+	        int col = entryTable.columnAtPoint(evt.getPoint());
+	        if ((row >= 0 ) && (col == VARIATIONS_COL)) {
+	        	// System.out.println( "TableMouseListener.mouseClicked button" + evt.getButton() + ", row/col=" + row + "/" + col );
+	        	int modelRow = entryTable.convertRowIndexToModel( row );
+	        	if (( modelRow >= 0 ) && ( modelRow <= entryTableModel.size())) {
+	        		ExtendedDisplayEntry entry = (ExtendedDisplayEntry) entryTableModel.getRowAt( modelRow );
+	        		switch (evt.getButton()) {
+	        		case MouseEvent.BUTTON1: case MouseEvent.BUTTON2: case MouseEvent.BUTTON3: {
+	        		String variationStr = (String) entry.getMember( VARIATIONS_COL ); // variation
+	        		if ( null != variationStr ) {
+	        			int [] values = Fretboard.getPermutationValues(variationStr);
+	        			int currentVar = values[ 0 ];
+	        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
+	        				// Decrement
+	        				currentVar -= 1;
+	        				if ( currentVar < 0 )
+	        					currentVar += values[ 1 ];
+	        			} else {
+	        				// Increment
+	        				currentVar += 1;
+	        				currentVar %= values[ 1 ];
+	        			}
+	        			
+	        			NoteList notes = NoteList.parse( (String) entry.getMember( "Notes") );
+	                	// Calculate other information fields.
+	        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+	                    LocationList locations = Fretboard.getPermutation(variations, currentVar );
+	                    
+	                    entry.setMember( "Locations", locations.toString() );      
+	                    entry.setMember( "Variation", Fretboard.getPermutationString(variations, currentVar) );
+	                    entry.setMember( "Score", ranker.getScoreString(locations) );
+	                    // System.out.println( "TableMouseListener.mouseClicked updating vari=" + values[ 0 ] + "/" + currentVar + ", entry=" + entry ); 
+                        entryTableModel.set(modelRow, entry);
+                        updateVisuals( entry );
+	        		} // non-null variations string
+	        		} // Mouse button 1 2 3
+	        		// case MouseEvent.: {
+	        		// } // Mouse button 1 2 3
+	        		} // switch
+	        	} // valid row col	        	
+	        } // VARIATIONS_COL
+	    } // mouseClicked
+    } // class
 }
