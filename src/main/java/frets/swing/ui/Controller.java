@@ -4,8 +4,8 @@ import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
 import java.awt.Cursor;
-import java.awt.Desktop;
 import java.awt.Dimension;
+import java.awt.FontMetrics;
 import java.awt.Image;
 import java.awt.Point;
 import java.awt.event.MouseAdapter;
@@ -13,8 +13,6 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
-import java.net.URI;
-import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Random;
@@ -46,6 +44,7 @@ import javax.swing.event.ListSelectionEvent;
 import javax.swing.event.ListSelectionListener;
 import javax.swing.event.TableModelEvent;
 import javax.swing.event.TableModelListener;
+import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 import javax.swing.text.SimpleAttributeSet;
@@ -69,7 +68,6 @@ import frets.main.NoteList;
 import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 
-// TODO - Find best scoring variation. LEFT DOUBLECLK=random RIGHT DOUBLECLK=minimum? New API to fretboard?
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
 // TODO - Add filtering or remove completely.
 // TODO - Redo score to be a weighted composite
@@ -129,18 +127,8 @@ public class Controller {
         createFrameComponents();
         createUI(host);
         createMenu(host);
-        disableControls();
         host.pack();
-        
-        aboutBox = new AboutBox(
-           resources.getString( "aboutBox.dialog.title" ),
-           resources.getString( "aboutBox.info.title" ),
-           resources.getString( "aboutBox.info.subtitle1" ),
-           resources.getString( "aboutBox.info.subtitle2" ),
-           resources.getString( "aboutBox.info.subtitle3" ),
-           resources.getString( "aboutBox.icon.location" ),
-           resources.getString( "aboutBox.background.location" )
- 	    );
+        addEntry(); // add a random entry        
     }
     
     // Adds a new displayEntry
@@ -297,6 +285,17 @@ public class Controller {
     }
     
     public void showAbout() {
+    	if ( null == aboutBox ) {
+            aboutBox = new AboutBox(
+                    resources.getString( "aboutBox.dialog.title" ),
+                    resources.getString( "aboutBox.info.title" ),
+                    resources.getString( "aboutBox.info.subtitle1" ),
+                    resources.getString( "aboutBox.info.subtitle2" ),
+                    resources.getString( "aboutBox.info.subtitle3" ),
+                    resources.getString( "aboutBox.icon.location" ),
+                    resources.getString( "aboutBox.background.location" )
+          	    );    		
+    	}
        aboutBox.show(SwingUtilities.getWindowAncestor(filterTF));
     }
 
@@ -353,7 +352,7 @@ public class Controller {
         fretsLargePanel = new JLabel();
         // largeImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
         fretsLargePanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
-        fretsLargePanel.setPreferredSize(new Dimension(600, 150));
+        fretsLargePanel.setPreferredSize(new Dimension(800, 150));
         fretsLargePanel.setBackground( displayOpts.backgroundColor );
         fretsLargePanel.setOpaque(true);
         fretsLargePanel.setToolTipText( null );
@@ -543,14 +542,12 @@ public class Controller {
         entryTable = new JTable( entryTableModel ){
             // Implement table cell tool tips.           
             public String getToolTipText(MouseEvent e) {
-                String tip = null;
                 Point p = e.getPoint();
-                int rowIndex = rowAtPoint(p);
                 int colIndex = columnAtPoint(p);
                 switch ( colIndex ) {
                    case ROOT_COL: return "Click to edit root note";
-                   case FORMULA_COL: return "Click to edit formula";
-                   case VARIATIONS_COL: return "Left/right click to change. Left double click for random. Right double click for best score.";
+                   case FORMULA_COL: return "Dbl click to edit formula";
+                   case VARIATIONS_COL: return "Left/right click to change. Left dbl click for random. Right dbl click for best score.";
                 } // colIndex
                 return null;
             }
@@ -564,9 +561,33 @@ public class Controller {
         TableColumn rootColumn = tcm.getColumn(0);
         rootColumn.setCellEditor(new NoteTableEditor());
 
+        // Set column preferred widths
+        // entryTable.setAutoResizeMode(JTable.AUTO_RESIZE_OFF);
+        setColWidth( entryTable, ROOT_COL, null, true );
+        setColWidth( entryTable, FORMULA_COL, null, true );
+        setColWidth( entryTable, VARIATIONS_COL, "16/24 (0123/2345)", true );
+        setColWidth( entryTable, SCORE_COL, "Scores sum=22, fret bounds[0,15]=0, fret span=3", false );
+        
         CutCopyPasteHelper.registerCutCopyPasteBindings(entryTable);
         CutCopyPasteHelper.setPasteEnabled(entryTable, true);
     }
+    
+    /** Sets the table column width based on column header or provided text. */
+    public static void setColWidth( JTable table, int col, String text, boolean preferredElseMin ) {
+    	if ( null == table ) return;
+        JTableHeader tableHeader = table.getTableHeader();        
+        if( null == tableHeader ) return;
+        FontMetrics headerFontMetrics = tableHeader.getFontMetrics(tableHeader.getFont());
+
+        
+        int headerWidth = headerFontMetrics.stringWidth( table.getColumnName(col) );
+        if ((null != text) && (text.length() > 0))
+            headerWidth = headerFontMetrics.stringWidth( text );
+        if ( preferredElseMin )
+        	table.getColumnModel().getColumn( col ).setPreferredWidth( headerWidth );
+        else
+        	table.getColumnModel().getColumn( col ).setMinWidth( headerWidth );
+    }    
     
     public Image getDetailsImage(ExtendedDisplayEntry selectedEntry) {
     	// System.out.println( "Controller requesting details image size=" + detailsImagePanel.getSize());
@@ -763,49 +784,71 @@ public class Controller {
 		// Example string "G2,R-3-5,6-8"
    	    return sb.toString();
     }
-    
+ 
+    /** Handles single and double clicks on the variations column. */
     protected class VariationMouseAdapter extends MouseAdapter {
 	    @Override
 	    public void mouseClicked(MouseEvent evt) {
 	        int row = entryTable.rowAtPoint(evt.getPoint());
 	        int col = entryTable.columnAtPoint(evt.getPoint());
 	        if ((row >= 0 ) && (col == VARIATIONS_COL)) {
-	        	// System.out.println( "TableMouseListener.mouseClicked button" + evt.getButton() + ", row/col=" + row + "/" + col );
+	        	// System.out.println( "TableMouseListener.mouseClicked button=" + evt.getButton() + ", count=" + evt.getClickCount() + ", row/col=" + row + "/" + col );
 	        	int modelRow = entryTable.convertRowIndexToModel( row );
 	        	if (( modelRow >= 0 ) && ( modelRow <= entryTableModel.size())) {
 	        		ExtendedDisplayEntry entry = (ExtendedDisplayEntry) entryTableModel.getRowAt( modelRow );
 	        		switch (evt.getButton()) {
-	        		case MouseEvent.BUTTON1: case MouseEvent.BUTTON2: case MouseEvent.BUTTON3: {
-	        		String variationStr = (String) entry.getMember( VARIATIONS_COL ); // variation
-	        		if ( null != variationStr ) {
-	        			int [] values = Fretboard.getPermutationValues(variationStr);
-	        			int currentVar = values[ 0 ];
-	        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
-	        				// Decrement
-	        				currentVar -= 1;
-	        				if ( currentVar < 0 )
-	        					currentVar += values[ 1 ];
-	        			} else {
-	        				// Increment
-	        				currentVar += 1;
-	        				currentVar %= values[ 1 ];
-	        			}
-	        			
+		        		case MouseEvent.BUTTON1: case MouseEvent.BUTTON2: case MouseEvent.BUTTON3: {
 	        			NoteList notes = NoteList.parse( (String) entry.getMember( "Notes") );
-	                	// Calculate other information fields.
-	        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-	                    LocationList locations = Fretboard.getPermutation(variations, currentVar );
-	                    
-	                    entry.setMember( "Locations", locations.toString() );      
-	                    entry.setMember( "Variation", Fretboard.getPermutationString(variations, currentVar) );
-	                    entry.setMember( "Score", ranker.getScoreString(locations) );
-	                    // System.out.println( "TableMouseListener.mouseClicked updating vari=" + values[ 0 ] + "/" + currentVar + ", entry=" + entry ); 
-                        entryTableModel.set(modelRow, entry);
-                        updateVisuals( entry );
-	        		} // non-null variations string
-	        		} // Mouse button 1 2 3
-	        		// case MouseEvent.: {
-	        		// } // Mouse button 1 2 3
+		        		String variationStr = (String) entry.getMember( VARIATIONS_COL ); // variation
+		        		if ( null != variationStr ) {
+		        			int [] values = Fretboard.getPermutationValues(variationStr);
+		        			int updateVariation = values[ 0 ];
+		        			int maxVar = values[ 1 ];
+		        			if ( evt.getClickCount() == 1 ) {
+			        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
+			        				// Decrement
+			        				updateVariation -= 1;
+			        				if ( updateVariation < 0 )
+			        					updateVariation += maxVar;
+			        			} else {
+			        				// Increment
+			        				updateVariation += 1;
+			        				updateVariation %= maxVar;
+			        			}
+		        			} else if ( evt.getClickCount() == 2 ) {
+		        				// It is strange that Java double click calls single click first.
+		        				// Hence you will see the single click logic execute before dbl click is called.
+			        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
+			        				// random
+                                    updateVariation = random.nextInt( maxVar );			        				
+			        			} else {
+				        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+				        	    	int bestScore = Integer.MAX_VALUE;
+			        				// best score
+			        				for ( int i = 0; i < maxVar; i++ ) {
+					                    LocationList locations = Fretboard.getPermutation(variations, i );
+			        					int [] score = ranker.compositeScore( locations );
+			        					if ((null != score) && (score[ 0 ] < bestScore)) {
+			        						bestScore = score[ 0 ];
+			        						updateVariation = i;
+			        					}
+			        				}
+			        			}		        				
+		        			}
+		        			
+		                	// Calculate other information fields.
+		        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+		                    LocationList locations = Fretboard.getPermutation(variations, updateVariation );
+		                    
+		                    entry.setMember( "Locations", locations.toString() );      
+		                    entry.setMember( "Variation", Fretboard.getPermutationString(variations, updateVariation) );
+		                    entry.setMember( "Score", ranker.getScoreString(locations) );
+		                    // System.out.println( "TableMouseListener.mouseClicked updating vari=" + values[ 0 ] + "/" + currentVar + ", entry=" + entry ); 
+		                    entryTableModel.set(modelRow, entry);
+		                    updateVisuals( entry );
+		                    evt.consume();
+		        		} // non-null variations string
+		        		} // case mouse button 1 2 3
 	        		} // switch
 	        	} // valid row col	        	
 	        } // VARIATIONS_COL
