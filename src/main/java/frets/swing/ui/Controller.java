@@ -11,8 +11,6 @@ import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -74,7 +72,6 @@ import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 // TODO - Add filtering or remove completely.
 // TODO - Redo score to be a weighted composite
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny.
-// TODO - Remove image path from entry bean.
 /**
  * The Controller for the Frets application. Controller gets its name
  * from the model view controller (MVC) pattern. Controller is responsible
@@ -608,25 +605,16 @@ public class Controller {
     
     public Image getDetailsImage(ExtendedDisplayEntry selectedEntry) {
     	// System.out.println( "Controller requesting details image size=" + detailsImagePanel.getSize());
-    	BufferedImage image = null;
-    	String imagePath = (String) selectedEntry.getMember( "ImagePath" );
-        if ( imagePath != null) {
-    	    try {
-    		   image = javax.imageio.ImageIO.read( new File( imagePath ));
-    		} catch (IOException e) {
-    		  	throw new IllegalArgumentException( e );
-    		}
-        } else {
-        	String locationString = (String) selectedEntry.getMember("Locations");
-      	    // System.out.println( "Controller locations=\"" + locationString + "\", detailsImagePanel=" + detailsImagePanel.getSize());
-            if (( null!= locationString ) && (locationString.length() > 0)) {
-            	LocationList locations = LocationList.parseString( locationString );
-                displayOpts.orientation = Orientation.VERTICAL;
-            	displayOpts.setDisplayAreaStyleMinAperture( fretboard, locations, 5 ); // set window to 5 frets.
-            	image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
-            }
+    	String locationString = (String) selectedEntry.getMember("Locations");
+  	    // System.out.println( "Controller locations=\"" + locationString + "\", detailsImagePanel=" + detailsImagePanel.getSize());
+        if (( null!= locationString ) && (locationString.length() > 0)) {
+        	LocationList locations = LocationList.parseString( locationString );
+            displayOpts.orientation = Orientation.VERTICAL;
+        	displayOpts.setDisplayAreaStyleMinAperture( fretboard, locations, 5 ); // set window to 5 frets.
+        	Image image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
+            return image;
         }
-        return image;
+        return null;
     }
 
     public Image getLargeImage(ExtendedDisplayEntry selectedEntry) {

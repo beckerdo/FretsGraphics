@@ -23,7 +23,6 @@ public class DisplayEntryModelTest {
 	    dem.setVariation( "variation" );
 	    dem.setScore( "score" );
 	    dem.setComments( "comments" );
-	    dem.setImagePath( "." ); // will test if readable
 	}
 	
 	@Test
@@ -38,7 +37,6 @@ public class DisplayEntryModelTest {
 	    assertEquals( dem.getVariation(), null );
 	    assertEquals( dem.getScore(), null );
 	    assertEquals( dem.getComments(), null );
-	    assertEquals( dem.getImagePath(), null );
 
 	    populateFields( dem );
 	    
@@ -50,6 +48,5 @@ public class DisplayEntryModelTest {
 	    assertEquals( dem.getVariation(), "variation" );
 	    assertEquals( dem.getScore(), "score" );
 	    assertEquals( dem.getComments(), "comments" );
-	    assertEquals( dem.getImagePath(), "." );
 	}
 }

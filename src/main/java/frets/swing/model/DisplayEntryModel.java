@@ -1,12 +1,6 @@
 package frets.swing.model;
 
-import java.awt.Image;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
 import java.io.Serializable;
-
-import javax.imageio.ImageIO;
 
 /**
  * Represents a simple bean with items to display via Swing.
@@ -21,8 +15,6 @@ public class DisplayEntryModel implements Serializable {
     protected String variation;
 	protected String score;
 	protected String comments;
-    protected String imagePath;
-    protected BufferedImage image;
 
     public DisplayEntryModel() {
     }
@@ -83,26 +75,6 @@ public class DisplayEntryModel implements Serializable {
 		this.comments = comments;
 	}
 
-    public void setImagePath(String imagePath) {
-	    File file = new File( imagePath );
-	    if ( !file.canRead() )
-	    	throw new IllegalArgumentException( "Cannot read file at \"" + imagePath + "\"" );
-	    this.imagePath = imagePath;
-    }
-    
-    public String getImagePath() {
-        return imagePath;
-    }
-    
-	public Image getImage() {
-		BufferedImage image = null;
-		try {
-			image = ImageIO.read(new File(this.imagePath));
-		} catch (IOException e) {
-			throw new IllegalArgumentException(e);
-		}
-		return image;
-	}
     
     public DisplayEntryModel clone() {
         DisplayEntryModel entry = new DisplayEntryModel();
@@ -113,7 +85,6 @@ public class DisplayEntryModel implements Serializable {
         entry.variation = variation;
         entry.score = score;
         entry.comments = comments;
-        entry.imagePath = imagePath;
         return entry;
     }
     
