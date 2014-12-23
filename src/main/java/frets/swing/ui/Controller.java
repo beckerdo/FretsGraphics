@@ -14,6 +14,7 @@ import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.ResourceBundle;
@@ -67,12 +68,13 @@ import frets.main.Note;
 import frets.main.NoteList;
 import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
+import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
 // TODO - Add filtering or remove completely.
 // TODO - Redo score to be a weighted composite
-// TODO - Add all variations. Add 10 best variations. Check to not dup the current row.
-// TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny. 
+// TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny.
+// TODO - Remove image path from entry bean.
 /**
  * The Controller for the Frets application. Controller gets its name
  * from the model view controller (MVC) pattern. Controller is responsible
@@ -91,6 +93,9 @@ public class Controller {
     public static final int VARIATIONS_COL = 4;
     public static final int SCORE_COL = 5;
 
+    // A hack, but want to preserve score columns with no score available
+    public static final int [] VISUALIZER_EMPTY_SCORE = new int [] { 0, 0, 0, 0, 0 };
+    
     protected static Random random = new Random();
     protected static ResourceBundle resources = Application.getInstance().getResourceBundle();
 
@@ -138,19 +143,21 @@ public class Controller {
        	System.out.println( "Controller.addEntry entry=" + entry );
         // Add the entry to the end of the list.
         entryTableModel.add(entry);
-        validateMaxScore();
-
         // Set a new focus.
     	int selectedRow = entryTable.getSelectedRow();
     	if ( -1 == selectedRow )
            entryTable.setRowSelectionInterval( 0, 0 );
     }
 
+    /** 
+     * Get an entry that is below the given max score.
+     * RETRY_MAX limits the number of tries.
+     */
     public ExtendedDisplayEntry randomEntry( int scoreMax ) {
+        final int RETRY_MAX = 100;
         // Create the new entry, adding some random values.
         ExtendedDisplayEntry entry = new ExtendedDisplayEntry();
     	int scoreSum = Integer.MAX_VALUE;
-        final int RETRY_MAX = 100;
     	int retryCount = 0;
     	LocationList locations = null;
     	List<LocationList> variations = null;
@@ -188,35 +195,46 @@ public class Controller {
         return entry;	   
     }
      
-    // Adds variations on selected entry
+    // Adds ten best score variations on selected entry
     public void varyTen() {
     	int [] selectedRows = entryTable.getSelectedRows();
     	if (( null != selectedRows ) && (selectedRows.length > 0)) {
     		// For now, get first one.
     		int firstSelection = selectedRows[ 0 ];
-     	   	ExtendedDisplayEntry entry = entryTableModel.get( firstSelection );
+    		int modelRow = entryTable.convertRowIndexToModel( firstSelection );
+     	   	ExtendedDisplayEntry entry = entryTableModel.get( modelRow );
      	   	// System.out.println( "   Selected row " + i + "=" + entry );
-    		List<ExtendedDisplayEntry> variations = getVariations( entry, 10 );
+    		List<ExtendedDisplayEntry> variations = getVariations( entry, Integer.MAX_VALUE );
 
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
-    			entryTableModel.addAll( variations );
+    			// Check to not duplicate
+    			variations.remove( entry );
+    			Collections.sort( variations, new ExtendedDisplayEntryScoreComparator() );
+    			int i = 0;
+    			while(( i < 10) && (i < variations.size())) {
+    				entryTableModel.add( variations.get( i ) );
+    				i++;
+    			}
                 validateMaxScore();
     		}
     	}
     }
 
-    // Adds variations on selected entry
+    // Adds ALL variations on selected entry
     public void varyAll() {
     	int [] selectedRows = entryTable.getSelectedRows();
     	if (( null != selectedRows ) && (selectedRows.length > 0)) {
     		// For now, get first one.
     		int firstSelection = selectedRows[ 0 ];
-     	   	ExtendedDisplayEntry entry = entryTableModel.get( firstSelection );
-    		List<ExtendedDisplayEntry> variations = getVariations( entry, Integer.MAX_VALUE );
+    		int modelRow = entryTable.convertRowIndexToModel( firstSelection );
+     	   	ExtendedDisplayEntry entry = entryTableModel.get( modelRow );
+    		List<ExtendedDisplayEntry> variations = getVariations( entry, Integer.MAX_VALUE ); // sorted by location
 
     		// Add the entry to the end of the list.
     		if (( null != variations ) && (variations.size() > 0 )) {
+    			// Check to not duplicate
+    			variations.remove( entry );
     			entryTableModel.addAll( variations );
                 validateMaxScore();
     		}
@@ -230,14 +248,9 @@ public class Controller {
     	NoteList notes = new NoteList( (String) entry.getMember( "Notes" ) );
     	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
         int permutations = Fretboard.getPermutationCount( variations );
-        String variationString = (String) entry.getMember( "Variation" );
-        int variation = -1;
-        if (null != variationString) {
-        	// Get variation from string.
-        	String [] args = variationString.split( "/" );
-        	if (( null != args ) && ( args.length > 0))
-        		variation = Integer.parseInt(args[0]);
-        }
+        String variationStr = (String) entry.getMember( "Variation" );
+		int [] values = Fretboard.getPermutationValues(variationStr);
+    	int variation = values[ 0 ];
         
         int maxPerm = Math.min( permutations, count );
         for ( int variationi = 0; variationi < maxPerm; variationi++ ) {
@@ -265,17 +278,20 @@ public class Controller {
      
     public void deleteSelection() {
     	boolean needsUpdate = false;
-    	int selectedRow = entryTable.getSelectedRow();
-    	while ( -1 != selectedRow ) {
-    		entryTableModel.remove( selectedRow );
-    		needsUpdate = true;
-    		selectedRow = entryTable.getSelectedRow();
+    	int [] selectedRows = entryTable.getSelectedRows();
+    	if (( null != selectedRows ) && ( selectedRows.length > 0)) {
+	    	for ( int i = selectedRows.length - 1; i >= 0; i-- ) {
+	    		int selectedRow = selectedRows[ i ];
+	    		int modelRow = entryTable.convertRowIndexToModel( selectedRow );
+	    		// System.out.println( "Controller.deleteSelection rows=" + entryTableModel.size() + ", tRow=" + selectedRow + ", mRow=" + modelRow);
+	    		entryTableModel.remove( modelRow );
+	    		needsUpdate = true;
+	    	}
     	}
     	if ( needsUpdate ) {
-            validateMaxScore();
-            disableControls();
-            if ( entryTable.getRowCount() > 0 )
-               entryTable.setRowSelectionInterval( 0, 0 );
+    		validateMaxScore();
+    		if ( entryTable.getRowCount() >  0 )
+    			entryTable.setRowSelectionInterval( 0, 0 );
     	}
     }
     
@@ -287,14 +303,14 @@ public class Controller {
     public void showAbout() {
     	if ( null == aboutBox ) {
             aboutBox = new AboutBox(
-                    resources.getString( "aboutBox.dialog.title" ),
-                    resources.getString( "aboutBox.info.title" ),
-                    resources.getString( "aboutBox.info.subtitle1" ),
-                    resources.getString( "aboutBox.info.subtitle2" ),
-                    resources.getString( "aboutBox.info.subtitle3" ),
-                    resources.getString( "aboutBox.icon.location" ),
-                    resources.getString( "aboutBox.background.location" )
-          	    );    		
+            	resources.getString( "aboutBox.dialog.title" ),
+                resources.getString( "aboutBox.info.title" ),
+                resources.getString( "aboutBox.info.subtitle1" ),
+                resources.getString( "aboutBox.info.subtitle2" ),
+                resources.getString( "aboutBox.info.subtitle3" ),
+                resources.getString( "aboutBox.icon.location" ),
+                resources.getString( "aboutBox.background.location" )
+          	);    		
     	}
        aboutBox.show(SwingUtilities.getWindowAncestor(filterTF));
     }
@@ -311,7 +327,8 @@ public class Controller {
         fretsLargePanel.setIcon( null );
         fretsLargePanel.setToolTipText( null );
         
-        visualizer.setColumns( new int [] { 0 } );
+  	    visualizer.setMaxValue( 0 );
+        visualizer.setColumns( VISUALIZER_EMPTY_SCORE );
         visualizer.setAnimatesTransitions( true );
 
         commentsTP.setText("");
@@ -345,7 +362,7 @@ public class Controller {
         visualizer.setOpaque(false);
         // Makes it align with image
         visualizer.setBorder(new EmptyBorder(5, 5, 5, 5));
-        visualizer.setColumns( new int [] { 0 });
+        visualizer.setColumns( VISUALIZER_EMPTY_SCORE );
 
         commentsTP = new JTextPane();
 
@@ -388,7 +405,7 @@ public class Controller {
 
         // Create table in a view port.
         entryTableModel = new EntryTableModel();
-        entryTableModel.addTableModelListener( new FretsTableModelListener() );
+        entryTableModel.addTableModelListener( new EntryTableModelListener() );
 		createEntryTable( entryTableModel ) ;
 		// Add variation column listener
 		entryTable.addMouseListener( new VariationMouseAdapter() );
@@ -555,7 +572,7 @@ public class Controller {
         entryTable.setFillsViewportHeight(true);
         entryTable.setAutoCreateRowSorter(true);
         entryTable.setSelectionMode(ListSelectionModel.MULTIPLE_INTERVAL_SELECTION);
-        entryTable.getSelectionModel().addListSelectionListener(new RowListener());
+        entryTable.getSelectionModel().addListSelectionListener(new EntryTableSelectionListener());
         
         TableColumnModel tcm = entryTable.getColumnModel();
         TableColumn rootColumn = tcm.getColumn(0);
@@ -624,9 +641,8 @@ public class Controller {
         return image;
     }
 
-	// Changed from selectionChangedModel to ListSelectionListener
-    // Need to unify/refactor with selection model listener
-    private class RowListener implements ListSelectionListener {
+    /** Listens for changes in selection. Updates visuals. */
+    private class EntryTableSelectionListener implements ListSelectionListener {
         public void valueChanged(ListSelectionEvent event) {
             if (event.getValueIsAdjusting()) {
                 return;
@@ -662,13 +678,13 @@ public class Controller {
         output.append(".");
     }    
 	
-	// Changed from selectionChangedModel to ListSelectionListener
-    // Need to unify/refactor with selection model listener
-    private class FretsTableModelListener implements TableModelListener {
+    /** Listens for changes in data model. Updates current entry. Updates visuals. */
+    private class EntryTableModelListener implements TableModelListener {
         public void tableChanged(TableModelEvent event) {
-            // StringBuffer output = new StringBuffer("RowListener: ");
-            // outputSelection( output );
-            // System.out.println( output.toString() );
+        	if ( entryTableModel.size() == 0 ) {
+        		disableControls();
+        		return;
+        	}
         	int type = event.getType();
         	String typeStr = "unknown";
         	switch ( type ) {
@@ -676,17 +692,17 @@ public class Controller {
         		case TableModelEvent.DELETE: typeStr = "delete"; break;
         		case TableModelEvent.UPDATE: typeStr = "update"; break;
         	}
-        	System.out.println( "Controller FretsTableModelListener type=" + typeStr +
+        	int col = event.getColumn();
+        	System.out.println( "Controller EntryTableModelListener type=" + typeStr +
         			", row=" + event.getFirstRow() + ".." + event.getLastRow() +
-        			", col=" + event.getColumn() +
+        			", col=" + col +
         			", event=" + event );
-        	  int col = event.getColumn();
-        	  if ((type == TableModelEvent.UPDATE) && ( col >= 0) && ( col <= 1)) {
-        		  ExtendedDisplayEntry entry = entryTableModel.get( event.getFirstRow() );
-        		  updateEntry( entry );
-        		  updateVisuals( entry );
-        	  }
-            
+    		if ((type == TableModelEvent.UPDATE) && ( col >= 0) && ( col <= 1)) {
+        		ExtendedDisplayEntry entry = entryTableModel.get( event.getFirstRow() );
+    			updateEntry( entry );
+        		updateVisuals( entry );
+    		}
+    		validateMaxScore();
         }
     }
     
@@ -729,8 +745,8 @@ public class Controller {
     
     // Ensure the new list items update the max score.
     protected void validateMaxScore() {
-        maxSumScore = Integer.MIN_VALUE;
-        minSumScore = Integer.MAX_VALUE;
+        maxSumScore = 0;
+        minSumScore = 0;
         for ( ExtendedDisplayEntry entry : entryTableModel ) {
      	    String scoreString = (String) entry.getMember( "Score" );
      	    int [] scores = ChordRank.toScores(scoreString);
@@ -743,7 +759,7 @@ public class Controller {
              }    		
     	}
   	    visualizer.setMaxValue( maxSumScore );
-  	    visualizer.setMaxValue( maxSumScore );
+        visualizer.repaint();    	
     }
 
     public final class TabbedPaneChangeHandler implements ChangeListener {
