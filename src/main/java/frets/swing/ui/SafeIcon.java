@@ -2,7 +2,6 @@ package frets.swing.ui;
 
 import java.awt.Component;
 import java.awt.Graphics;
-import java.awt.Image;
 import java.awt.image.BufferedImage;
 
 import javax.swing.AbstractButton;
@@ -13,23 +12,26 @@ import javax.swing.JComponent;
 import javax.swing.JPanel;
 
 /**
+ * Provides a BufferedImage of an icon contained in a UI component.
+ * <p>
  * Some ui-icons misbehave in that they unconditionally class-cast to the 
  * component type they are mostly painted on. Consequently they blow up if 
  * we are trying to paint them anywhere else (f.i. in a renderer).  
- * 
+ * <p>
  * This Icon is an adaption of a cool trick by Darryl Burke/Rob Camick found at
  * http://tips4java.wordpress.com/2008/12/18/icon-table-cell-renderer/#comment-120
- * 
+ * <p>
  * The base idea is to instantiate a component of the type expected by the icon, 
  * let it paint into the graphics of a bufferedImage and create an ImageIcon from it.
  * In subsequent calls the ImageIcon is used. 
- * 
+ * <p>
  * To use:
  *    Image image = SafeIcon.provideImage( icon );
  * which implements:
  *    icon = new SafeIcon(icon);
  *    BufferedImage image = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_ARGB);
  *    icon.paintIcon(new JPanel(), image.getGraphics(), 0, 0);
+ *    return image;
  */
 public class SafeIcon implements Icon {
 
@@ -123,6 +125,7 @@ public class SafeIcon implements Icon {
     }
     
     
+    /** Returns a buffered image of the provided icon. */
     public static BufferedImage provideImage( Icon icon ) {
         SafeIcon safeIcon = new SafeIcon(icon);
     	BufferedImage image = new BufferedImage(icon.getIconWidth(), icon.getIconHeight(), BufferedImage.TYPE_INT_ARGB);

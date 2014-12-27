@@ -11,12 +11,15 @@ import java.awt.Point;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Random;
 import java.util.ResourceBundle;
 
+import javax.imageio.ImageIO;
 import javax.swing.Action;
 import javax.swing.GroupLayout;
 import javax.swing.ImageIcon;
@@ -93,8 +96,8 @@ public class Controller {
     // A hack, but want to preserve score columns with no score available
     public static final int [] VISUALIZER_EMPTY_SCORE = new int [] { 0, 0, 0, 0, 0 };
     
-    protected static Random random = new Random();
-    protected static ResourceBundle resources = Application.getInstance().getResourceBundle();
+    protected final static Random random = new Random();
+    protected final static ResourceBundle resources = Application.getInstance().getResourceBundle();
 
     private Fretboard fretboard;
     private ChordRank ranker;
@@ -297,6 +300,66 @@ public class Controller {
         disableControls();       
     }
     
+	public void exportImage( boolean details ) {
+		int imageCount = 0;
+		int[] selectedRows = entryTable.getSelectedRows();
+		if ((null != selectedRows) && (selectedRows.length > 0)) {
+			for (int i = 0; i < selectedRows.length; i++) {
+				int selectedRow = selectedRows[i];
+				int modelRow = entryTable.convertRowIndexToModel(selectedRow);
+				ExtendedDisplayEntry entry = entryTableModel.get(modelRow);
+   			    String entryDetails = getShortName( entry ); 
+   			    BufferedImage image = details ? getDetailsImage(entry) : getLargeImage(entry);
+   			    try { 
+   			    	@SuppressWarnings("unused")
+					String fileName = writeImage( image, entryDetails );
+   			    } catch( IOException e ) {
+        			System.out.println( "Controller.exportImage exception=" + e );
+        			return;
+   			    }
+				imageCount++;
+			}
+			System.out.println("Controller.exportImage wrote " + imageCount + " images to \"" + resources.getString("export.path") + "\"." );
+
+		}
+	}
+
+	public void exportDetail( ) {
+		exportImage( true );
+	}
+
+    public void exportFretboard() {
+		exportImage( false );
+     }
+    
+
+	public static String writeImage(BufferedImage image, String entryDetails) 
+		throws IOException {
+		// BufferedImage image = SafeIcon.provideImage(icon);
+		String path = resources.getString("export.path");
+		File pathDir = new File(path);
+		if (!pathDir.exists()) {
+			pathDir.mkdirs();
+		}
+		String sep = System.getProperty("file.separator");
+		String fileName = path + sep + "frets.png";
+		if (null != entryDetails)
+			fileName = path + sep + "frets," + entryDetails + ".png";
+		File file = new File( fileName );
+		int fileCount = 0;
+		while (( file.exists() ) && ( fileCount <= 100 )) {
+			if ( fileCount >= 100 ) {
+				System.out.println( "Controller.writeImage could not write. Too many file versions in \"" + path + "\" path.");
+				return null;
+			}
+			fileName = path + sep + "frets," + entryDetails + "," + ++fileCount + ".png";
+			file = new File( fileName );
+		}
+		
+		ImageIO.write(image, "png", file);
+		return fileName;
+	}
+    
     public void showAbout() {
     	if ( null == aboutBox ) {
             aboutBox = new AboutBox(
@@ -456,12 +519,20 @@ public class Controller {
         JMenuItem deleteAllMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.deleteAll"));
         deleteAllMenuItem.addActionListener(new DynamicAction(this, "deleteAll"));
         deleteAllMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl shift D"));
+        entryMenu.addSeparator();
         JMenuItem varyTenMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.varyTen"));
         varyTenMenuItem.addActionListener(new DynamicAction(this, "varyTen"));
-        varyTenMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl V"));
+        varyTenMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl T"));
         JMenuItem varyAllMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.varyAll"));
         varyAllMenuItem.addActionListener(new DynamicAction(this, "varyAll"));
-        varyAllMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl shift V"));
+        varyAllMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl A"));
+        entryMenu.addSeparator();
+        JMenuItem exportDetailMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.exportDetail"));
+        exportDetailMenuItem.addActionListener(new DynamicAction(this, "exportDetail"));
+        exportDetailMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl E"));
+        JMenuItem exportFretboardMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.exportFretboard"));
+        exportFretboardMenuItem.addActionListener(new DynamicAction(this, "exportFretboard"));
+        exportFretboardMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl shift E"));
 
         JMenu helpMenu = MnemonicHelper.createMenu(resources.getString("menu.help"));
         menuBar.add(helpMenu);
@@ -603,7 +674,7 @@ public class Controller {
         	table.getColumnModel().getColumn( col ).setMinWidth( headerWidth );
     }    
     
-    public Image getDetailsImage(ExtendedDisplayEntry selectedEntry) {
+    public BufferedImage getDetailsImage(ExtendedDisplayEntry selectedEntry) {
     	// System.out.println( "Controller requesting details image size=" + detailsImagePanel.getSize());
     	String locationString = (String) selectedEntry.getMember("Locations");
   	    // System.out.println( "Controller locations=\"" + locationString + "\", detailsImagePanel=" + detailsImagePanel.getSize());
@@ -611,21 +682,20 @@ public class Controller {
         	LocationList locations = LocationList.parseString( locationString );
             displayOpts.orientation = Orientation.VERTICAL;
         	displayOpts.setDisplayAreaStyleMinAperture( fretboard, locations, 5 ); // set window to 5 frets.
-        	Image image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
+        	BufferedImage image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
             return image;
         }
         return null;
     }
 
-    public Image getLargeImage(ExtendedDisplayEntry selectedEntry) {
+    public BufferedImage getLargeImage(ExtendedDisplayEntry selectedEntry) {
     	// System.out.println( "Controller requesting large image size=" + largeImagePanel.getSize());
-    	BufferedImage image = null;
     	// Set large display to entire fretboard.
     	Display largeDisplayOpts = new Display( displayOpts );
     	largeDisplayOpts.orientation = Orientation.HORIZONTAL;
     	largeDisplayOpts.setDisplayAreaStyleMaxFretboard(fretboard);
     	largeDisplayOpts.showVariations = true;
-       	image = RasterRenderer.renderImage( fretsLargePanel.getSize(), largeDisplayOpts, fretboard, selectedEntry );        	
+    	BufferedImage image = RasterRenderer.renderImage( fretsLargePanel.getSize(), largeDisplayOpts, fretboard, selectedEntry );        	
         return image;
     }
 

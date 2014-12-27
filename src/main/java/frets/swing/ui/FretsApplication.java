@@ -17,7 +17,7 @@ import swingextensions.ui.UIFactory;
  * Does very little other than start up the Controller.
  */
 public class FretsApplication extends Application {
-	public static final String FRETS_APPLICATION = "frets.swing.ui.application";
+	public static final String FRETS_APPLICATION = "frets.main.application";
 	public static final String FRETS_MODEL_STORE_XML = "/frets/swing/ui/modelStore.xml";
 	public static final String FRETS_IMAGES = "/frets/images/";
 

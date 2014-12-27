@@ -33,8 +33,10 @@ import swingextensions.swingx.app.Application;
  */
 @SuppressWarnings("serial")
 public class PopupMenuAction extends JPopupMenu implements ActionListener {
+
+	public final static ResourceBundle resources = Application.getInstance().getResourceBundle();
+	
 	public PopupMenuAction() {
-	    ResourceBundle resources = Application.getInstance().getResourceBundle();
 		
         JMenuItem saveItem = new JMenuItem( resources.getString("menu.save") );
         saveItem.addActionListener(this);
@@ -43,16 +45,12 @@ public class PopupMenuAction extends JPopupMenu implements ActionListener {
         JMenuItem copyItem = new JMenuItem( resources.getString("menu.copy") );
         copyItem.addActionListener(this);
         add( copyItem );
-        
-        // JMenuItem varyAllMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.varyAll"));
-        // varyAllMenuItem.addActionListener(new DynamicAction(this, "varyAll"));
-        // varyAllMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl shift V"));        
 	}
 	
 	/** Called when a menu item on this element have been clicked/pressed. */
 	@Override
 	public void actionPerformed(ActionEvent event) {
-		Object source = event.getSource();
+		// Object source = event.getSource();
 		String command = event.getActionCommand();
 		Component invoker = this.getInvoker();
         // System.out.println( "PopupMenuAction.actionPerformed command=" + command + ", invoker=" + invoker);
@@ -62,34 +60,27 @@ public class PopupMenuAction extends JPopupMenu implements ActionListener {
             // System.out.println( "ImagePopupMenu.actionPerformed command=" + command + ", parent=" +  jlabel.getParent());
             // System.out.println( "ImagePopupMenu.actionPerformed entry name=" + jlabel.getToolTipText() );
             
-            String entryName = jlabel.getToolTipText();
     		Icon icon = jlabel.getIcon();            
+    		BufferedImage image = SafeIcon.provideImage(icon);
+            if (image == null)
+                throw new IllegalArgumentException ("Image can't be null");
+            String entryDetails = jlabel.getToolTipText();
             switch ( command ) {
             	case "Save":
-            		BufferedImage image = SafeIcon.provideImage(icon);
-            		String fileName = "frets.png";
-            		if ( null !=  entryName )
-            			fileName = "frets," + entryName + ".png";
             		try {
-            			ImageIO.write(image, "png", new File( fileName ));
-                        System.out.println( "PopupMenuAction.actionPerformed save to \"" + fileName + "\"." );
+            		   String fileName = Controller.writeImage( image, entryDetails ); 
+                       System.out.println( "PopupMenuAction.actionPerformed save to \"" + fileName + "\"." );
             		} catch ( IOException e ) {
             			System.out.println( "PopupMenuAction exception: " + e );
             		}
             		break; 
             	case "Copy": 
-            		BufferedImage cImage = SafeIcon.provideImage(icon);
-                    if (cImage == null)
-                        throw new IllegalArgumentException ("Image can't be null");
-
-                    ImageTransferable transferable = new ImageTransferable( cImage );
+                    ImageTransferable transferable = new ImageTransferable( image );
                     Toolkit.getDefaultToolkit().getSystemClipboard().setContents(transferable, null);
             		break;
             	default: System.out.println( "PopupMenuAction warning: unhandled command \"" + command + "\"");
             }
         }
-        
-        
 	}
 	
 	static class ImageTransferable implements Transferable {
