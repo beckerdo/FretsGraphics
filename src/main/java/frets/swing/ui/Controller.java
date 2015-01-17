@@ -72,6 +72,7 @@ import frets.swing.model.ExtendedDisplayEntry;
 import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
+// TODO - Allow easy display and formula entry of scales, pentatonic boxes.
 // TODO - Add filtering or remove completely.
 // TODO - Redo score to be a weighted composite
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny.

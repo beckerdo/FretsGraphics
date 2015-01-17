@@ -20,8 +20,8 @@ Demonstration
 TODOs
 ==========
 1. Complete Display editor panel.
-2. Hit testing on rendered fretboard images.
-3. So many rough edges in GUI usability and functions.
+2. Allow display of scales, pentatonic boxes, etc.
+3. Hit testing on rendered fretboard images.
 4. Chart making page. 
    Allow spreadsheet-like grid to display multiple fretboard displays
    Each grid entry can display complete model (fretboard, root, formula, notes/locations, variation, score)
@@ -29,6 +29,7 @@ TODOs
    Page default data at cell 0,0. Cell 1,1 contains G root, Cell 1,2 modifies $1,$1 root with +2 steps.
    Some cells can be blank or contain text or contain colors or images.
    Page data can be saved and read from property file.
+5. More ToDos in frets.swing.ui package.
 
 Contributors	
 ==========
