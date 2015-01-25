@@ -82,6 +82,8 @@ import frets.swing.model.ExtendedDisplayEntryScoreComparator;
  * and keeping everything in sync.
  */
 public class Controller {
+	public static final ExtendedDisplayEntry NULL_ENTRY = new ExtendedDisplayEntry();
+	
 	public static final int RANDOM_VARIATION = -1;
     public static final String ENTRY_NAME_DELIM = ",";
     
@@ -133,13 +135,15 @@ public class Controller {
         createUI(host);
         createMenu(host);
         host.pack();
-        addEntry(); // add a random entry        
+        addEntry( NULL_ENTRY ); // add a random entry        
     }
-    
-    // Adds a new displayEntry
+
     public void addEntry() {
-        // Create the new entry, adding some default values.
-        ExtendedDisplayEntry entry = randomEntry( 10 );
+        addEntry( randomEntry( 10 )); // add a random entry        
+    }
+
+    // Adds a new displayEntry
+    public void addEntry( ExtendedDisplayEntry entry ) {
        	System.out.println( "Controller.addEntry entry=" + entry );
         // Add the entry to the end of the list.
         entryTableModel.add(entry);
@@ -675,17 +679,18 @@ public class Controller {
     }    
     
     public BufferedImage getDetailsImage(ExtendedDisplayEntry selectedEntry) {
-    	// System.out.println( "Controller requesting details image size=" + detailsImagePanel.getSize());
+        displayOpts.orientation = Orientation.VERTICAL;
     	String locationString = (String) selectedEntry.getMember("Locations");
-  	    // System.out.println( "Controller locations=\"" + locationString + "\", detailsImagePanel=" + detailsImagePanel.getSize());
-        if (( null!= locationString ) && (locationString.length() > 0)) {
+  	    // System.out.println( "Controller locations=\"" + locationString + "\", detailsImagePanel=" + fretsDetailsPanel.getSize());
+        if (( null != locationString ) && (locationString.length() > 0)) {
         	LocationList locations = LocationList.parseString( locationString );
-            displayOpts.orientation = Orientation.VERTICAL;
         	displayOpts.setDisplayAreaStyleMinAperture( fretboard, locations, 5 ); // set window to 5 frets.
-        	BufferedImage image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
-            return image;
+        } else {
+        	// Null image
+        	displayOpts.setDisplayAreaStyleMinAperture( fretboard, 5 ); // set window to 5 frets.
         }
-        return null;
+    	BufferedImage image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
+        return image;
     }
 
     public BufferedImage getLargeImage(ExtendedDisplayEntry selectedEntry) {
@@ -788,7 +793,8 @@ public class Controller {
     /** Updates the main display from an updated entry. */
     protected void updateVisuals( ExtendedDisplayEntry entry ) {
     	String entryText = getShortName( entry);
-
+        // System.out.println( "Controller.updateVisuals entry=" + entry );
+    	
     	fretsDetailsPanel.setIcon( new ImageIcon( getDetailsImage( entry ) ));
         fretsDetailsPanel.setToolTipText( entryText );
         fretsLargePanel.setIcon( new ImageIcon( getLargeImage( entry )) );
@@ -872,7 +878,9 @@ public class Controller {
 	        		ExtendedDisplayEntry entry = (ExtendedDisplayEntry) entryTableModel.getRowAt( modelRow );
 	        		switch (evt.getButton()) {
 		        		case MouseEvent.BUTTON1: case MouseEvent.BUTTON2: case MouseEvent.BUTTON3: {
-	        			NoteList notes = NoteList.parse( (String) entry.getMember( "Notes") );
+		        		String notesString = (String) entry.getMember( "Notes");
+		        		if (( null != notesString ) && ( notesString.length() > 0 )) {
+	        			NoteList notes = NoteList.parse( notesString );
 		        		String variationStr = (String) entry.getMember( VARIATIONS_COL ); // variation
 		        		if ( null != variationStr ) {
 		        			int [] values = Fretboard.getPermutationValues(variationStr);
@@ -922,6 +930,7 @@ public class Controller {
 		                    updateVisuals( entry );
 		                    evt.consume();
 		        		} // non-null variations string
+		        		} // non-null notes String
 		        		} // case mouse button 1 2 3
 	        		} // switch
 	        	} // valid row col	        	

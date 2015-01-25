@@ -30,6 +30,7 @@ import frets.swing.model.ExtendedDisplayEntry;
 /**
  * This class is able to render to graphical representations. 
  */
+// TODO - Inverse mapping. Click to location.
 // TODO - Offset note so it appears slightly above the fret, not on it.
 // TODO - String thicknesses, but it might need anti aliasing. 
 // TODO - Wound strings?
@@ -69,10 +70,6 @@ public class RasterRenderer {
 	    g2d.setColor( displayOpts.backgroundColor );
 	    g2d.fillRect(0, 0, size.width, size.height);
 	    
-		LocationList locations = LocationList.parseString( (String) entry.getMember( "Locations" ));
-		Note root = new Note( (String) entry.getMember( "Root" ));
-		root.setOctave(0); // set root low so intervals come out positive.
-
 		// Need to replace by dynamic calculations
 	    int displayFretCount = displayOpts.getDisplayAreaFretAperture();
 
@@ -125,7 +122,7 @@ public class RasterRenderer {
 	    }
 	    
 	    // Draw strings
-	    Color brighterString = displayOpts.stringColor.brighter().brighter();
+	    // Color brighterString = displayOpts.stringColor.brighter().brighter();
 	    // System.out.println( "Brighter=" + brighterString );
 	    for( int stringi = displayOpts.displayAreaMin.getString(); stringi <= displayOpts.displayAreaMax.getString();  stringi++ ) {
 	    	int stringThickness = displayOpts.stringThickness;
@@ -163,23 +160,37 @@ public class RasterRenderer {
 	    LocationList dots = new LocationList( "2-3,2-5,2-7,2-9,1-12,3-12,2-15"); 
 	    paintDots( fretboard, dots, g2d, size, displayOpts, true, fretMinStringMin, fretMaxStringMax ); 
 
-	    // Draw fretboard locations
+	    
+	    Note root = null;
+	    String rootName = (String) entry.getMember( "Root" );
+	    if ( null != rootName ) {
+	    	root = new Note( rootName );
+	    	root.setOctave( 0 ); // set low so intervals are positive.
+	    }
+	    
+		// Draw variation locations with ghosting
 	    if ( displayOpts.showVariations ) {
 	    	// NoteList fmin = new NoteList( lowF, "R-b3-5-b7" );
-	    	NoteList notes =  new NoteList( (String) entry.getMember( "Notes" ));
-	    	List<LocationList> variations = fretboard.getOctaveVariations( notes );
-
-	    	// Make a location list from all locations.
-	    	LocationList variationLocations = new LocationList();
-	    	for ( LocationList enharmonics : variations ) {
-	    	   variationLocations.addAll( enharmonics );	
+	    	String notesString = (String) entry.getMember( "Notes" );
+	    	if (( null != notesString) && ( notesString.length() > 0 )) {
+	    		NoteList notes =  new NoteList( notesString );
+		    	if ( null != notes ) {
+		    		List<LocationList> variations = fretboard.getOctaveVariations( notes );
+	
+		    		// Make a location list from all locations.
+		    		LocationList variationLocations = new LocationList();
+		    		for ( LocationList enharmonics : variations ) {
+		    			variationLocations.addAll( enharmonics );	
+		    		}
+		    		// int permutations = Fretboard.getPermutationCount( variations  ); 
+		    		paintLocations( fretboard, variationLocations, root, g2d, size, displayOpts, true,
+			 	       fretMinStringMin, fretMaxStringMax );
+		    	}
 	    	}
-	    	int permutations = Fretboard.getPermutationCount( variations  ); 
-		    paintLocations( fretboard, variationLocations, root, g2d, size, displayOpts, true,
-		 	       fretMinStringMin, fretMaxStringMax ); 
 	    }
 	    
 	    // Draw normal locations with no ghosting.
+		LocationList locations = LocationList.parseString( (String) entry.getMember( "Locations" ));
 	    paintLocations( fretboard, locations, root, g2d, size, displayOpts, false,
 	       fretMinStringMin, fretMaxStringMax ); 
 
@@ -211,7 +222,7 @@ public class RasterRenderer {
 
 	    // Draw not played strings
 	    if (!displayOpts.notPlayed.isEmpty()) {
-	    	List<Integer> notPlayed = fretboard.getNotPlayedSet( locations);
+	    	List<Integer> notPlayed = fretboard.getNotPlayedSet( locations );
     		if ( !notPlayed.isEmpty() ) {
 	    		if ( null == displayOpts.notPlayedString )
 	    			displayOpts.notPlayedString = "x";
@@ -445,120 +456,128 @@ public class RasterRenderer {
     public static void paintDots( final Fretboard fretboard, final LocationList locations,  
     		Graphics2D g2d, final Dimension size, final Display displayOpts, boolean ghosted,
         	final Point fretMinStringMin, final Point fretMaxStringMax ) {
-	    if ( null != locations) {
-		    // Infer note and font size from given size.
-		    int noteRadius = Math.min( size.width, size.height ) / 30;
-		    int locationRadius = noteRadius;
-		    int locationDiameter = noteRadius * 2;
+	    if ( null == locations) return; 
 	    	
-	    	for ( int locationi = 0; locationi < locations.size(); locationi++ ) {
-	    		Location location = locations.get(locationi);
-                if ( !ghosted )
-                	g2d.setColor( Color.DARK_GRAY );
-                else
-                	g2d.setColor( changeAlpha( Color.DARK_GRAY ));
+	    // Infer note and font size from given size.
+	    int noteRadius = Math.min( size.width, size.height ) / 30;
+	    int locationRadius = noteRadius;
+	    int locationDiameter = noteRadius * 2;
+    	
+    	for ( int locationi = 0; locationi < locations.size(); locationi++ ) {
+    		Location location = locations.get(locationi);
+            if ( !ghosted )
+            	g2d.setColor( Color.DARK_GRAY );
+            else
+            	g2d.setColor( changeAlpha( Color.DARK_GRAY ));
 
-	    		// Check for fret greater or less than min or max display fret.
-	    		if (( location.getFret() > displayOpts.displayAreaMin.getFret() ) &&
-	    			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
-	    			// Inside fret window
-	    			Point point = getLocation( size, displayOpts, location.getString() + 0.5f, location.getFret() - 0.5f );	    			
-	    			g2d.fillOval( point.x - locationRadius, point.y - locationRadius, locationDiameter, locationDiameter);
+    		// Check for fret greater or less than min or max display fret.
+    		if (( location.getFret() > displayOpts.displayAreaMin.getFret() ) &&
+    			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
+    			// Inside fret window
+    			Point point = getLocation( size, displayOpts, location.getString() + 0.5f, location.getFret() - 0.5f );	    			
+    			g2d.fillOval( point.x - locationRadius, point.y - locationRadius, locationDiameter, locationDiameter);
 
-	    			// Put interval or note name
-	    		} else {
-	    			// Outside fret window
-	    		}
-	    	}
-	    }
+    			// Put interval or note name
+    		} else {
+    			// Outside fret window
+    		}
+    	}
    }
 
     /** Draw these locations on the given graphics. */
-    public static void paintLocations( final Fretboard fretboard, final LocationList locations, final Note root, 
+    public static void paintLocations( final Fretboard fretboard, final LocationList locations, Note root, 
     		Graphics2D g2d, final Dimension size, final Display displayOpts, boolean ghosted,
         	final Point fretMinStringMin, final Point fretMaxStringMax ) {
-	    if ( null != locations) {
-		    // Infer note and font size from given size.
-		    int noteRadius = Math.min( size.width, size.height ) / 20;
-			int fontSize = noteRadius * 2;
-			Font textFont = new Font( "SansSerif", Font.BOLD, fontSize );
-			g2d.setFont( textFont );
-		    int locationRadius = noteRadius;
-		    int locationDiameter = noteRadius * 2;
-	    	
-	    	for ( int locationi = 0; locationi < locations.size(); locationi++ ) {
-	    		Location location = locations.get(locationi);
-                Note thisNote = location.getNote( fretboard );
-                int intValue = thisNote.getQuality( root ) % displayOpts.intervalColors.length;
-                if ( !ghosted )
-                	g2d.setColor( displayOpts.intervalColors[ intValue ] );
-                else
-                	g2d.setColor( changeAlpha( displayOpts.intervalColors[ intValue ] ));
+	    if ( null == locations) return;
+	    
+	    // Infer note and font size from given size.
+	    int noteRadius = Math.min( size.width, size.height ) / 20;
+		int fontSize = noteRadius * 2;
+		Font textFont = new Font( "SansSerif", Font.BOLD, fontSize );
+		g2d.setFont( textFont );
+	    int locationRadius = noteRadius;
+	    int locationDiameter = noteRadius * 2;
+    	
+    	for ( int locationi = 0; locationi < locations.size(); locationi++ ) {
+    		Location location = locations.get(locationi);
+            Note thisNote = location.getNote( fretboard );
+            if ( null != root ) {
+            	int intValue = thisNote.getQuality( root ) % displayOpts.intervalColors.length;
+            	if ( !ghosted )
+            		g2d.setColor( displayOpts.intervalColors[ intValue ] );
+            	else
+            		g2d.setColor( changeAlpha( displayOpts.intervalColors[ intValue ] ));
+            } else
+            	g2d.setColor( displayOpts.defaultNoteColor );
 
-	    		// Check for fret greater or less than min or max display fret.
-	    		if (( location.getFret() >= displayOpts.displayAreaMin.getFret() ) &&
-	    			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
-	    			// Inside fret window
-	    			Point point = getLocation( size, displayOpts, location );
-	    			if ( displayOpts.noteShadows && !ghosted ) {
-	    				if ( !ghosted )
-	    					g2d.setColor( displayOpts.noteShadowColor );
-	    				else
-	    					g2d.setColor( changeAlpha( displayOpts.noteShadowColor ));
-			    		// g2d.setComposite( AlphaComposite.MIX );
-			    		Point shadowOffset = new Point( noteRadius / 4, noteRadius / 4 );
-		    			g2d.fillOval( point.x + shadowOffset.x - locationRadius, point.y + shadowOffset.y - locationRadius, locationDiameter, locationDiameter);
-			    		// g2d.setComposite( AlphaComposite.SRC );
-		                if ( !ghosted )
-		                	g2d.setColor( displayOpts.intervalColors[ intValue ] );
-		                else
-		                	g2d.setColor( changeAlpha( displayOpts.intervalColors[ intValue ] ));
-	    			}
-	    			g2d.fillOval( point.x - locationRadius, point.y - locationRadius, locationDiameter, locationDiameter);
+    		// Check for fret greater or less than min or max display fret.
+    		if (( location.getFret() >= displayOpts.displayAreaMin.getFret() ) &&
+    			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
+    			// Inside fret window
+    			Point point = getLocation( size, displayOpts, location );
+    			if ( displayOpts.noteShadows && !ghosted ) {
+        			Color previousColor = g2d.getColor();
+    				if ( !ghosted )
+    					g2d.setColor( displayOpts.noteShadowColor );
+    				else
+    					g2d.setColor( changeAlpha( displayOpts.noteShadowColor ));
+		    		// g2d.setComposite( AlphaComposite.MIX );
+		    		Point shadowOffset = new Point( noteRadius / 4, noteRadius / 4 );
+	    			g2d.fillOval( point.x + shadowOffset.x - locationRadius, point.y + shadowOffset.y - locationRadius, locationDiameter, locationDiameter);
+		    		// g2d.setComposite( AlphaComposite.SRC );
+	    			g2d.setColor( previousColor );
+    			}
+    			g2d.fillOval( point.x - locationRadius, point.y - locationRadius, locationDiameter, locationDiameter);
+    			
 
-	    			// Put interval or note name
-	                if ( !ghosted )
-	                	g2d.setColor( displayOpts.intervalTextColors[ intValue ] );
-	                else
-	                	g2d.setColor( changeAlpha( displayOpts.intervalTextColors[ intValue ] ));
-		    		String intervalString =  Note.getQualityName( thisNote, root );
-				    TextLayout layout = new TextLayout( intervalString, textFont, g2d.getFontRenderContext() );
-					Rectangle2D stringBounds = layout.getBounds();
-					Point fretLoc = new Point( 
-						point.x -  (int) (stringBounds.getWidth() / 2.0 ) - 1,
-						point.y  + (int)(stringBounds.getHeight() / 2.0));
-		    		g2d.drawString( intervalString, fretLoc.x, fretLoc.y);
-		    		g2d.setColor( displayOpts.intervalColors[ intValue ] );
-	    		
+    			// Put interval or note name
+	    		String noteString = null;
+	    		if ( null == root ) {
+	    			noteString = thisNote.toString();
+	            	g2d.setColor( displayOpts.defaultNoteTextColor );
 	    		} else {
-	    			// Outside fret window
-	    			if ( location.getFret() < displayOpts.displayAreaMin.getFret() ) {
-		    			Location virtualLocation = new Location( location.getString(), displayOpts.displayAreaMin.getFret() );
-		    			Point point = getLocation( size, displayOpts, virtualLocation );
-		        		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
-		        			g2d.draw( translate( upArrow, point.x, point.y - 5 ) );
-		        		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
-		    				if ( displayOpts.hand == Hand.RIGHT )
-		    					g2d.draw( translate( rightArrow, point.x + 5, point.y ) );
-		    				else if ( displayOpts.hand == Hand.LEFT )
-		    					g2d.draw( translate( leftArrow, point.x - 5, point.y ) );
-
-		        		}
-	    			} else if ( location.getFret() > displayOpts.displayAreaMax.getFret() ) {
-		    			Location virtualLocation = new Location( location.getString(), displayOpts.displayAreaMax.getFret() );
-		    			Point point = getLocation( size, displayOpts, virtualLocation );
-		        		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
-		        			g2d.draw( translate( downArrow, point.x, point.y - 5 ) );
-		        		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
-		    				if ( displayOpts.hand == Hand.RIGHT )
-		    					g2d.draw( translate( leftArrow, point.x - 5, point.y ) );
-		    				else if ( displayOpts.hand == Hand.LEFT )
-		    					g2d.draw( translate( rightArrow, point.x + 5, point.y ) );
-
-		        		}
-	    			}	    			
+	    			noteString = Note.getQualityName( thisNote, root );
+	            	int intValue = thisNote.getQuality( root ) % displayOpts.intervalColors.length;
+	            	if ( !ghosted )
+	            		g2d.setColor( displayOpts.intervalTextColors[ intValue ] );
+	            	else
+	            		g2d.setColor( changeAlpha( displayOpts.intervalTextColors[ intValue ] ));
 	    		}
-	    	}
-	    }
+
+			    TextLayout layout = new TextLayout( noteString, textFont, g2d.getFontRenderContext() );
+				Rectangle2D stringBounds = layout.getBounds();
+				Point fretLoc = new Point( 
+					point.x -  (int) (stringBounds.getWidth() / 2.0 ) - 1,
+					point.y  + (int)(stringBounds.getHeight() / 2.0));
+	    		g2d.drawString( noteString, fretLoc.x, fretLoc.y);
+    		} else {
+    			// Outside fret window
+    			if ( location.getFret() < displayOpts.displayAreaMin.getFret() ) {
+	    			Location virtualLocation = new Location( location.getString(), displayOpts.displayAreaMin.getFret() );
+	    			Point point = getLocation( size, displayOpts, virtualLocation );
+	        		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
+	        			g2d.draw( translate( upArrow, point.x, point.y - 5 ) );
+	        		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
+	    				if ( displayOpts.hand == Hand.RIGHT )
+	    					g2d.draw( translate( rightArrow, point.x + 5, point.y ) );
+	    				else if ( displayOpts.hand == Hand.LEFT )
+	    					g2d.draw( translate( leftArrow, point.x - 5, point.y ) );
+
+	        		}
+    			} else if ( location.getFret() > displayOpts.displayAreaMax.getFret() ) {
+	    			Location virtualLocation = new Location( location.getString(), displayOpts.displayAreaMax.getFret() );
+	    			Point point = getLocation( size, displayOpts, virtualLocation );
+	        		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
+	        			g2d.draw( translate( downArrow, point.x, point.y - 5 ) );
+	        		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
+	    				if ( displayOpts.hand == Hand.RIGHT )
+	    					g2d.draw( translate( leftArrow, point.x - 5, point.y ) );
+	    				else if ( displayOpts.hand == Hand.LEFT )
+	    					g2d.draw( translate( rightArrow, point.x + 5, point.y ) );
+
+	        		}
+    			}	    			
+    		}
+    	}
    }
 }
