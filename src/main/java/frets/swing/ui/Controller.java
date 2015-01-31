@@ -459,9 +459,10 @@ public class Controller {
     /** Creates all the UI components in the given frame. */
     protected void createUI(JFrame frame) {
         JTabbedPane tabbedPane = new JTabbedPane();
+        // Panels greater than 0 are lazy instantiated by the TabbedPaneChangeHandler ChangeListener.        
         tabbedPane.addTab(Application.getResourceAsString("tab.details"), createDetailsPanel());
         tabbedPane.addTab(Application.getResourceAsString("tab.comments"), null);
-        tabbedPane.addTab(Application.getResourceAsString("tab.display"), createDisplayEditorPanel());
+        tabbedPane.addTab(Application.getResourceAsString("tab.display"), null);
         tabbedPane.addChangeListener(new TabbedPaneChangeHandler(tabbedPane));
 
         JPanel fixedPanel = new JPanel();
@@ -610,7 +611,7 @@ public class Controller {
         return panel;
     }
     
-    /** Create a big panel that can handle comments and notes editing. */
+    /** Create a big panel that can edit display options. */
     private Component createDisplayEditorPanel() {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
@@ -839,6 +840,7 @@ public class Controller {
         scoreBarChart.repaint();    	
     }
 
+    /** Support lazy instantiation of panels greater than 0. */
     public final class TabbedPaneChangeHandler implements ChangeListener {
         private final JTabbedPane tp;
         
@@ -847,9 +849,12 @@ public class Controller {
         }
         
         public void stateChanged(ChangeEvent e) {
-//            if (tp.getSelectedIndex() == 1 && tp.getComponentAt(1) == null) {
-//                tp.setComponentAt(1, createNotesPanel());
-//            }
+            if (tp.getSelectedIndex() == 1 && tp.getComponentAt(1) == null) {
+                tp.setComponentAt(1, createCommentsPanel());
+            }
+            if (tp.getSelectedIndex() == 2 && tp.getComponentAt(2) == null) {
+                tp.setComponentAt(1, createDisplayEditorPanel());
+            }
             // int selectedIndex = tp.getSelectedIndex();
         }
     }
