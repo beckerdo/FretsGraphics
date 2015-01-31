@@ -1,6 +1,5 @@
 package frets.swing.ui;
 
-import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -16,7 +15,9 @@ import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.EnumSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 import frets.main.Display;
 import frets.main.Display.Hand;
@@ -82,9 +83,9 @@ public class RasterRenderer {
 	    int displayFretCount = displayOpts.getDisplayAreaFretAperture();
 
 	    // Calc corners of fret diagram
-	    Point fretMinStringMin = getLocation( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
+	    Point fretMinStringMin = getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
 	    // System.out.println( "Location string=" + displayOpts.displayAreaMin.getString() + ",fret=" + displayOpts.displayAreaMin.getFret() + ", point=" + fretMinStringMin );
-	    Point fretMaxStringMax = getLocation( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
+	    Point fretMaxStringMax = getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
 	    // System.out.println( "Location string=" + displayOpts.displayAreaMax.getString() + ",fret=" + displayOpts.displayAreaMax.getFret() + ", point=" + fretMaxStringMax );
 
 	    // Draw fretboard background
@@ -98,7 +99,7 @@ public class RasterRenderer {
 	    // Draw frets
 	    g2d.setColor( displayOpts.fretColor);    
 	    for( int freti = 0; freti <= displayFretCount;  freti++ ) {
-		    Point fretBase = getLocation( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() + freti ) ); 
+		    Point fretBase = getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() + freti ) ); 
 	    	if (( 0 == freti ) && ( 0 == displayOpts.displayAreaMin.getFret() )) {
 	    	    // Draw nut
 	    	    g2d.setColor( displayOpts.nutColor);
@@ -145,7 +146,7 @@ public class RasterRenderer {
 	    	// System.out.println( "String " + stringi + ", octave=" + openNoteOctave + ", thickness=" + stringThickness );
 		    g2d.setColor( displayOpts.stringColor );
 	    	
-		    Point stringBase = getLocation( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) ); 
+		    Point stringBase = getLocationPoint( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) ); 
     		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
     			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
     				// if ((stringThickness > 2) && (t == 1)) { 
@@ -170,7 +171,7 @@ public class RasterRenderer {
     
 	    Note root = null;
 	    String rootName = (String) entry.getMember( "Root" );
-	    if ( null != rootName ) {
+	    if (( null != rootName ) && ( rootName.length() > 0)) {
 	    	root = new Note( rootName );
 	    	root.setOctave( 0 ); // set low so intervals are positive.
 	    }
@@ -238,12 +239,12 @@ public class RasterRenderer {
     		// System.out.println( "RasterRenderer string layout bounds=" + stringBounds );
 	    	if ((0 != displayOpts.displayAreaMin.getFret()) || displayOpts.openStringDisplay ) {
     			if (displayOpts.fretNumbering.contains(Display.FretNumbering.FIRSTLEFT)) {
-	    			Point loc = getLocation( size, displayOpts, 0f, (float) displayOpts.displayAreaMin.getFret() );
+	    			Point loc = getLocationPoint( size, displayOpts, 0f, (float) displayOpts.displayAreaMin.getFret() );
    					g2d.drawString( fretNum, (int)(loc.x - stringBounds.getWidth())/2 - 1, 
    							                 loc.y + (int)(stringBounds.getHeight()/2) );
     			}
     			if (displayOpts.fretNumbering.contains(Display.FretNumbering.FIRSTRIGHT)) {
-	    			Point loc = getLocation( size, displayOpts, fretboard.getStringCount() - 1, (float) displayOpts.displayAreaMin.getFret() );
+	    			Point loc = getLocationPoint( size, displayOpts, fretboard.getStringCount() - 1, (float) displayOpts.displayAreaMin.getFret() );
    					g2d.drawString( fretNum, (int)(loc.x + size.width - stringBounds.getWidth())/2, 
    							                 loc.y + (int)(stringBounds.getHeight()/2) );
     			}
@@ -266,7 +267,7 @@ public class RasterRenderer {
     			// System.out.println( "RasterRenderer string layout bounds=" + stringBounds );
    				for ( int stringi : notPlayed ) {
    					if ( displayOpts.notPlayed.contains( NotPlayedLocation.HEAD )) {
-       					Point loc = getLocation( size, displayOpts, (float) stringi, displayOpts.displayAreaMin.getFret() );
+       					Point loc = getLocationPoint( size, displayOpts, (float) stringi, displayOpts.displayAreaMin.getFret() );
        					// Point2D.Float point2d = new Point2D.Float( 0.0f, 0.0f );
        					if ( Display.Orientation.VERTICAL == displayOpts.orientation ) {
        						g2d.drawString( displayOpts.notPlayedString, 
@@ -280,7 +281,7 @@ public class RasterRenderer {
        					}
    					}  
    					if ( displayOpts.notPlayed.contains( NotPlayedLocation.FIRST )) {
-       					Point loc = getLocation( size, displayOpts, (float) stringi, displayOpts.displayAreaMin.getFret() + 0.5f );
+       					Point loc = getLocationPoint( size, displayOpts, (float) stringi, displayOpts.displayAreaMin.getFret() + 0.5f );
        					if ( Display.Orientation.VERTICAL == displayOpts.orientation ) {
        						g2d.drawString( displayOpts.notPlayedString, 
        							loc.x - (float)stringBounds.getWidth()/2.0f, 
@@ -308,8 +309,8 @@ public class RasterRenderer {
 	 * The point location is influenced by display options and
 	 * the intended fret window to be displayed. 
 	 */
-	public static Point getLocation( Dimension size, Display displayOpts, Location location ) {
-		return getLocation( size, displayOpts, location.getString(), location.getFret() );		
+	public static Point getLocationPoint( Dimension size, Display displayOpts, Location location ) {
+		return getLocationPoint( size, displayOpts, location.getString(), location.getFret() );		
 	}
 
 	
@@ -321,7 +322,7 @@ public class RasterRenderer {
 	 * This version of the API can handle fractional and
 	 * outside the display area strings and frets 
 	 */
-	public static Point getLocation( Dimension size, Display displayOpts, float string, float fret ) {
+	public static Point getLocationPoint( Dimension size, Display displayOpts, float string, float fret ) {
 		// Note: y axis is inverted. 0 at top, height at base.
 		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
 			// right         left
@@ -374,7 +375,69 @@ public class RasterRenderer {
 		}
 		return new Point( 0, 0 );		
 	}
+
+	/** 
+	 * Converts a point location into the nearest fretboard location.
+	 * The point location is influenced by display options and
+	 * the intended fret window to be displayed.
+	 * The point may be on or off the fretboard.
+	 * The location may be occupied or unoccupied by a note.
+	 * <p>
+	 * This version of the API can handle fractional and
+	 * outside the display area strings and frets 
+	 */
+	public static Location getNearestLocation( Point p1, Dimension size, Display displayOpts, Fretboard fretboard)  {
+		// System.out.println( "RasterRenderer loc=(" + p1.x + "," + p1.y + "), size=(" + size.getWidth() + "," + size.getHeight() + ")" );
+		if ( null == fretboard )
+			return null;
+
+	    // Find every location and point on fretboard within the portal.
+    	Map<Location,Point> locationToPoint = new HashMap<Location,Point>();
+    	Map<Point,Location> pointToLocation = new HashMap<Point,Location>();
+	    // Iterate through strings.
+	    for( int stringi = displayOpts.displayAreaMin.getString(); stringi <= displayOpts.displayAreaMax.getString(); stringi++ ) {
+	    	// Valid x location for vertical. Valid y location for horizontal.
+		    Point stringBase = getLocationPoint( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) );
+		    
+    		// Iterate through frets
+    	    int displayFretCount = displayOpts.getDisplayAreaFretAperture();
+    	    for( int freti = 0; freti <= displayFretCount; freti++ ) {
+    	    	// Valid x location for horizontal. Valid y location for vertical.
+    		    Point fretBase = getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() + freti ) );
+    		    
+    	    	Location location = new Location( stringi, freti );
+    	    	Point point = null;
+    	    	if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
+     	    	   point = new Point( stringBase.x, fretBase.y );
+    	    	} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
+    	    	   point = new Point( fretBase.x, stringBase.y );
+    	        }
+    	    	
+    	    	locationToPoint.put( location, point );
+    	    	// System.out.println ( "RasterRenderer location=" + location + ", point=" + point );
+    	    	pointToLocation.put( point, location );
+    	    } // for each fret
+	    } // for each string
+        // System.out.println( "RasterRenderer location count=" + locationToPoint.size());
+	    
+        // Figure out min distance
+	    double minDistance = Double.MAX_VALUE;
+	    Location nearestLocation = null;
+	    for ( Location location : locationToPoint.keySet()) {
+	    	Point p2 = locationToPoint.get( location );
+	    	if ( null != p2 ) {
+	    		double distance = Math.sqrt( (p2.x-p1.x)*(p2.x-p1.x) + (p2.y-p1.y)*(p2.y-p1.y)  );
+	    		if ( distance < minDistance ) {
+	    			minDistance = distance;
+	    			nearestLocation = location;
+	    	    	// System.out.println ( "RasterRenderer min location=" + location + ", point=" + p2 );
+	    		}
+	    	}
+	    }
+		return nearestLocation;
+	}
 	
+	/** Create an arrow shape. */
     public static Shape createArrow( int length, int barb, double barbAngleDegrees, double rotateDegrees, double scale ) {
         double barbAngle = Math.toRadians( barbAngleDegrees );
         Path2D.Double path = new Path2D.Double();
@@ -507,7 +570,7 @@ public class RasterRenderer {
     		if (( location.getFret() > displayOpts.displayAreaMin.getFret() ) &&
     			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
     			// Inside fret window
-    			Point point = getLocation( size, displayOpts, location.getString() + 0.5f, location.getFret() - 0.5f );	    			
+    			Point point = getLocationPoint( size, displayOpts, location.getString() + 0.5f, location.getFret() - 0.5f );	    			
     			g2d.fillOval( point.x - locationRadius, point.y - locationRadius, locationDiameter, locationDiameter);
 
     			// Put interval or note name
@@ -551,7 +614,7 @@ public class RasterRenderer {
     		if (( location.getFret() >= displayOpts.displayAreaMin.getFret() ) &&
     			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
     			// Inside fret window
-    			Point point = getLocation( size, displayOpts, location );
+    			Point point = getLocationPoint( size, displayOpts, location );
     			if ( displayOpts.noteShadows ) {
         			Color previousColor = g2d.getColor();
     				if ( NOT_GHOSTED == ghostAlpha )
@@ -588,7 +651,7 @@ public class RasterRenderer {
     			// Outside fret window
     			if ( location.getFret() < displayOpts.displayAreaMin.getFret() ) {
 	    			Location virtualLocation = new Location( location.getString(), displayOpts.displayAreaMin.getFret() );
-	    			Point point = getLocation( size, displayOpts, virtualLocation );
+	    			Point point = getLocationPoint( size, displayOpts, virtualLocation );
 	        		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
 	        			g2d.draw( translate( upArrow, point.x, point.y - 5 ) );
 	        		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
@@ -600,7 +663,7 @@ public class RasterRenderer {
 	        		}
     			} else if ( location.getFret() > displayOpts.displayAreaMax.getFret() ) {
 	    			Location virtualLocation = new Location( location.getString(), displayOpts.displayAreaMax.getFret() );
-	    			Point point = getLocation( size, displayOpts, virtualLocation );
+	    			Point point = getLocationPoint( size, displayOpts, virtualLocation );
 	        		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
 	        			g2d.draw( translate( downArrow, point.x, point.y - 5 ) );
 	        		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {

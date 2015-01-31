@@ -3,7 +3,6 @@ package frets.swing.ui;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Component;
-import java.awt.Cursor;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Point;
@@ -48,15 +47,13 @@ import javax.swing.event.TableModelListener;
 import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
-import javax.swing.text.SimpleAttributeSet;
-import javax.swing.text.StyleConstants;
+
 
 import swingextensions.swingx.CutCopyPasteHelper;
 import swingextensions.swingx.DropShadowBorder;
 import swingextensions.swingx.DynamicAction;
 import swingextensions.swingx.MnemonicHelper;
 import swingextensions.swingx.app.Application;
-import swingextensions.swingx.text.RegExStyler;
 import swingextensions.ui.AboutBox;
 import swingextensions.ui.BarChartVisualizer;
 import frets.main.ChordRank;
@@ -71,9 +68,11 @@ import frets.swing.model.ExtendedDisplayEntry;
 import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
-// TODO - Allow easy display and formula entry of scales, pentatonic boxes.
+// TODO - User interface to perform inversions
+// TODO - Pentatonic box formulas. Shorten formula G2 R-b3-4-5-b7-R-b3-4-5-b7-R-b3	
+// TODO - Match location list to root and formula. Populate common chord name in comments.
 // TODO - Add filtering or remove completely.
-// TODO - Redo score to be a weighted composite
+// TODO - Redo score to be a weighted composite. Also add string span as a metric.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny.
 /**
  * The Controller for the Frets application. Controller gets its name
@@ -87,6 +86,8 @@ public class Controller {
 	public static final int RANDOM_VARIATION = -1;
     public static final String ENTRY_NAME_DELIM = ",";
     
+	public static final int NONE_SELECTED = -1;
+	
     // A hack, but better than hard coding.
     public static final int ROOT_COL = 0;
     public static final int FORMULA_COL = 1;
@@ -124,18 +125,30 @@ public class Controller {
     private JTextPane commentsTP;
 
     private Display displayOpts = new Display();
+    private Display largeDisplayOpts;
     private DisplayEditor displayEditor = new DisplayEditor( displayOpts );
     
     private static AboutBox aboutBox;
     
     public Controller(JFrame host) {
     	System.out.println( "FretsController cons");
-        
-        createFrameComponents();
+
+        // Some post init
+        String defaultFretboard = resources.getString("default.fretboard");
+		fretboard = Fretboard.instance.getInstance( defaultFretboard );
+    	displayOpts.orientation = Orientation.VERTICAL;
+    	largeDisplayOpts = new Display( displayOpts );
+    	largeDisplayOpts.orientation = Orientation.HORIZONTAL;
+    	largeDisplayOpts.setDisplayAreaStyleMaxFretboard(fretboard);
+    	largeDisplayOpts.showEnharmonicVariations = true;
+    	largeDisplayOpts.showOctaveVariations = true;
+
+    	createFrameComponents();
         createUI(host);
         createMenu(host);
         host.pack();
         addEntry( NULL_ENTRY ); // add a random entry        
+
     }
 
     /** Adds a random entry */
@@ -150,7 +163,7 @@ public class Controller {
         entryTableModel.add(entry);
         // Set a new focus.
     	int selectedRow = entryTable.getSelectedRow();
-    	if ( -1 == selectedRow )
+    	if ( NONE_SELECTED == selectedRow )
            entryTable.setRowSelectionInterval( 0, 0 );
     }
 
@@ -196,54 +209,74 @@ public class Controller {
         entry.setMember( "Locations", locations.toString() );      
         entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
         entry.setMember( "Score", ranker.getScoreString(locations) );
+        // entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
         
         return entry;	   
     }
      
-    /** Adds to the entry table ten best score variations on selected entry */
-    public void varyTen() {
+    /** 
+     * Returns the index of the first selected entry in the entry table.
+     * Returns NONE_SELECTED if no entries are selected.
+     * Convert table index to model index with entryTable.convertRowIndexToModel( selection );
+     */
+    public static int getFirstSelected(JTable entryTable) {
     	int [] selectedRows = entryTable.getSelectedRows();
     	if (( null != selectedRows ) && (selectedRows.length > 0)) {
     		// For now, get first one.
     		int firstSelection = selectedRows[ 0 ];
-    		int modelRow = entryTable.convertRowIndexToModel( firstSelection );
-     	   	ExtendedDisplayEntry entry = entryTableModel.get( modelRow );
-     	   	// System.out.println( "   Selected row " + i + "=" + entry );
-    		List<ExtendedDisplayEntry> variations = getVariations( entry, Integer.MAX_VALUE );
-
-    		// Add the entry to the end of the list.
-    		if (( null != variations ) && (variations.size() > 0 )) {
-    			// Check to not duplicate
-    			variations.remove( entry );
-    			Collections.sort( variations, new ExtendedDisplayEntryScoreComparator() );
-    			int i = 0;
-    			while(( i < 10) && (i < variations.size())) {
-    				entryTableModel.add( variations.get( i ) );
-    				i++;
-    			}
-                validateMaxScore();
-    		}
+    		return firstSelection;
     	}
+    	return NONE_SELECTED;
+    }
+    
+    /** 
+     * Returns the first selected entry in the entry table.
+     * Returns null if no entries are selected.
+     */
+    public static ExtendedDisplayEntry getFirstSelected(JTable entryTable, EntryTableModel entryTableModel) {
+    	int [] selectedRows = entryTable.getSelectedRows();
+    	if (( null != selectedRows ) && (selectedRows.length > 0)) {
+    		// For now, get first one.
+    		int firstSelection = selectedRows[ 0 ];
+     	   	ExtendedDisplayEntry entry = entryTableModel.get( firstSelection );
+    		return entry;
+    	}
+    	return null;
+    }
+    
+    /** Adds to the entry table N best score variations on first selected entry */
+    public void varyN( int N ) {
+      	ExtendedDisplayEntry entry = getFirstSelected( entryTable, entryTableModel );
+      	if ( null != entry ) {
+   	   	   // System.out.println( "   Selected row=" + entry );
+   		   List<ExtendedDisplayEntry> variations = getVariations( entry, Integer.MAX_VALUE );
+
+      		// Add the entry to the end of the list.
+  	      	if (( null != variations ) && (variations.size() > 0 )) {
+   			   // Check to not duplicate
+   			   variations.remove( entry );
+   			   Collections.sort( variations, new ExtendedDisplayEntryScoreComparator() );
+   			   int i = 0;
+   			   while(( i < N) && (i < variations.size())) {
+   			      ExtendedDisplayEntry vary = variations.get( i );
+   			      if ( entry.equals( vary )) {
+   			         entryTableModel.add( variations.get( i ) );
+   				     i++;
+   			      }
+   			   }
+   	  	    }
+            validateMaxScore();
+   		} //null
+    } // varyN
+
+    /** Adds to the entry table ten best score variations on selected entry */
+    public void varyTen() {
+    	varyN( 10 );
     }
 
     /** Add to the entry table ALL variations on selected entry. */
     public void varyAll() {
-    	int [] selectedRows = entryTable.getSelectedRows();
-    	if (( null != selectedRows ) && (selectedRows.length > 0)) {
-    		// For now, get first one.
-    		int firstSelection = selectedRows[ 0 ];
-    		int modelRow = entryTable.convertRowIndexToModel( firstSelection );
-     	   	ExtendedDisplayEntry entry = entryTableModel.get( modelRow );
-    		List<ExtendedDisplayEntry> variations = getVariations( entry, Integer.MAX_VALUE ); // sorted by location
-
-    		// Add the entry to the end of the list.
-    		if (( null != variations ) && (variations.size() > 0 )) {
-    			// Check to not duplicate
-    			variations.remove( entry );
-    			entryTableModel.addAll( variations );
-                validateMaxScore();
-    		}
-    	}
+    	varyN( Integer.MAX_VALUE );
     }
 
     /** Returns the first count variations of the given entry sorted by score. */
@@ -275,6 +308,7 @@ public class Controller {
 	            newEntry.setMember( "Locations", locations.toString() );      
 	            newEntry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
 	            newEntry.setMember( "Score", ranker.getScoreString(locations) );
+	            // entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
 	            entryVariations.add( newEntry );
             }
         }
@@ -284,7 +318,7 @@ public class Controller {
      
     /** Deletes the selected rows from the table and model. */
     public void deleteSelection() {
-    	boolean needsUpdate = false;
+    	boolean needsUpdate = false;    	
     	int [] selectedRows = entryTable.getSelectedRows();
     	if (( null != selectedRows ) && ( selectedRows.length > 0)) {
 	    	for ( int i = selectedRows.length - 1; i >= 0; i-- ) {
@@ -308,9 +342,10 @@ public class Controller {
         disableControls();       
     }
 
-	public void exportImage( boolean details ) {
+    /** Get the selected entries and export to files. */
+	public void exportImages( boolean details ) {
 		int imageCount = 0;
-		int[] selectedRows = entryTable.getSelectedRows();
+		int [] selectedRows = entryTable.getSelectedRows();
 		if ((null != selectedRows) && (selectedRows.length > 0)) {
 			for (int i = 0; i < selectedRows.length; i++) {
 				int selectedRow = selectedRows[i];
@@ -333,15 +368,15 @@ public class Controller {
 	}
 
 	public void exportDetail( ) {
-		exportImage( true );
+		exportImages( true );
 	}
 
     public void exportFretboard() {
-		exportImage( false );
+		exportImages( false );
      }
     
 
-    /** Writes the given entry to a file name of "<export.path>/frets<entryDetails>,<fileCount>.png" */
+    /** Writes the image to a file name of "<export.path>/frets<entryDetails>,<fileCount>.png" */
 	public static String writeImage(BufferedImage image, String entryDetails) 
 		throws IOException {
 		// BufferedImage image = SafeIcon.provideImage(icon);
@@ -436,6 +471,7 @@ public class Controller {
         fretsDetailsPanel.setOpaque(true);
         fretsDetailsPanel.setToolTipText( null );
         fretsDetailsPanel.addMouseListener(new PopupMenuListener( ));
+        fretsDetailsPanel.addMouseListener(new LocationClickListener( ));
         
         scoreBarChart = new BarChartVisualizer();
   	    scoreBarChart.setMaxValue( 0 );
@@ -454,6 +490,7 @@ public class Controller {
         fretsLargePanel.setOpaque(true);
         fretsLargePanel.setToolTipText( null );
         fretsLargePanel.addMouseListener(new PopupMenuListener());
+        fretsLargePanel.addMouseListener(new LocationClickListener());
     }
     
     /** Creates all the UI components in the given frame. */
@@ -468,8 +505,6 @@ public class Controller {
         JPanel fixedPanel = new JPanel();
         JLabel fretboardLabel = new JLabel(resources.getString("label.fretboard"));
         fixedPanel.add( fretboardLabel );
-        String defaultFretboard = resources.getString("default.fretboard");
-		fretboard = Fretboard.instance.getInstance( defaultFretboard );
 		fretboardTF.setText( fretboard.getMetaDescription() );
 		fretboardTF.setEditable( false );
         fixedPanel.add( fretboardTF );
@@ -687,56 +722,43 @@ public class Controller {
         	table.getColumnModel().getColumn( col ).setMinWidth( headerWidth );
     }    
     
-    public BufferedImage getDetailsImage(ExtendedDisplayEntry selectedEntry) {
-        displayOpts.orientation = Orientation.VERTICAL;
-    	String locationString = (String) selectedEntry.getMember("Locations");
+    public BufferedImage getDetailsImage(ExtendedDisplayEntry entry) {
+    	String locationString = (String) entry.getMember("Locations");
   	    // System.out.println( "Controller locations=\"" + locationString + "\", detailsImagePanel=" + fretsDetailsPanel.getSize());
+    	// Locations may be null or empty list.
         if (( null != locationString ) && (locationString.length() > 0)) {
         	LocationList locations = LocationList.parseString( locationString );
         	displayOpts.setDisplayAreaStyleMinAperture( fretboard, locations, 5 ); // set window to 5 frets.
         } else {
         	// Null image
-        	displayOpts.setDisplayAreaStyleMinAperture( fretboard, 5 ); // set window to 5 frets.
+        	displayOpts.setDisplayAreaStyleMinAperture( fretboard, null, 5 ); // set window to 5 frets.
         }
-    	BufferedImage image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, selectedEntry );
+    	BufferedImage image = RasterRenderer.renderImage( fretsDetailsPanel.getSize(), displayOpts, fretboard, entry );
         return image;
     }
 
-    public BufferedImage getLargeImage(ExtendedDisplayEntry selectedEntry) {
+    public BufferedImage getLargeImage(ExtendedDisplayEntry entry) {
     	// System.out.println( "Controller requesting large image size=" + largeImagePanel.getSize());
     	// Set large display to entire fretboard.
-    	Display largeDisplayOpts = new Display( displayOpts );
-    	largeDisplayOpts.orientation = Orientation.HORIZONTAL;
-    	largeDisplayOpts.setDisplayAreaStyleMaxFretboard(fretboard);
-    	largeDisplayOpts.showEnharmonicVariations = true;
-    	largeDisplayOpts.showOctaveVariations = true;
-    	BufferedImage image = RasterRenderer.renderImage( fretsLargePanel.getSize(), largeDisplayOpts, fretboard, selectedEntry );        	
+    	BufferedImage image = RasterRenderer.renderImage( fretsLargePanel.getSize(), largeDisplayOpts, fretboard, entry );        	
         return image;
     }
 
     /** Listens for changes in selection. Updates visuals. */
-    private class EntryTableSelectionListener implements ListSelectionListener {
+    public class EntryTableSelectionListener implements ListSelectionListener {
         public void valueChanged(ListSelectionEvent event) {
             if (event.getValueIsAdjusting()) {
                 return;
             }
-            // StringBuffer output = new StringBuffer("RowListener: ");
-            // outputSelection( output );
-            // System.out.println( output.toString() );
-            
-            int [] rows = entryTable.getSelectedRows();
-            if ((null != rows) && ( rows.length > 0)) {
-            	int firstIndex = rows[ 0 ];
-            	ExtendedDisplayEntry entry = entryTableModel.get( firstIndex );
+          	ExtendedDisplayEntry entry = getFirstSelected( entryTable, entryTableModel );
+          	if( null != entry )
       		  	updateVisuals( entry );
-            } else {
-            	disableControls();
-            }
+          	else
+          		disableControls();            
         }
     }
         
-    @SuppressWarnings("unused")
-	private void outputSelection( StringBuffer output) {
+	public void outputSelection( StringBuffer output) {
         output.append(String.format("Lead: %d, %d. ",
             entryTable.getSelectionModel().getLeadSelectionIndex(),
             entryTable.getColumnModel().getSelectionModel().getLeadSelectionIndex()));
@@ -752,27 +774,25 @@ public class Controller {
     }    
 	
     /** Listens for changes in data model. Updates current entry. Updates visuals. */
-    private class EntryTableModelListener implements TableModelListener {
+    public class EntryTableModelListener implements TableModelListener {
         public void tableChanged(TableModelEvent event) {
         	if ( entryTableModel.size() == 0 ) {
         		disableControls();
         		return;
         	}
         	int type = event.getType();
-        	String typeStr = "unknown";
-        	switch ( type ) {
-        		case TableModelEvent.INSERT: typeStr = "insert"; break;
-        		case TableModelEvent.DELETE: typeStr = "delete"; break;
-        		case TableModelEvent.UPDATE: typeStr = "update"; break;
-        	}
         	int col = event.getColumn();
-        	System.out.println( "Controller EntryTableModelListener type=" + typeStr +
-        			", row=" + event.getFirstRow() + ".." + event.getLastRow() +
-        			", col=" + col +
-        			", event=" + event );
+        	// String typeStr = "unknown";
+        	// switch ( type ) {
+        	// 	case TableModelEvent.INSERT: typeStr = "insert"; break;
+        	// 	case TableModelEvent.DELETE: typeStr = "delete"; break;
+        	// 	case TableModelEvent.UPDATE: typeStr = "update"; break;
+        	// }
+        	// System.out.println( "Controller EntryTableModelListener type=" + typeStr + ", row=" + event.getFirstRow() + ".." + 
+        	//    event.getLastRow() + ", col=" + col + ", event=" + event );
     		if ((type == TableModelEvent.UPDATE) && ( col >= 0) && ( col <= 1)) {
         		ExtendedDisplayEntry entry = entryTableModel.get( event.getFirstRow() );
-    			updateEntry( entry );
+    			updateEntryFromFormula( entry );
         		updateVisuals( entry );
     		}
     		validateMaxScore();
@@ -780,7 +800,7 @@ public class Controller {
     }
     
     /** Updates an entry from the root and the formula. */
-    protected void updateEntry( ExtendedDisplayEntry entry ){
+    protected void updateEntryFromFormula( ExtendedDisplayEntry entry ){
     	String root = (String) entry.getMember( "Root" );
     	String formula = (String) entry.getMember( "Formula" );
 	    
@@ -798,6 +818,7 @@ public class Controller {
 	    entry.setMember( "Locations", locations.toString() );      
         entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
         entry.setMember( "Score", ranker.getScoreString(locations) );    
+        // entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
     }
 
     /** Updates the main display from an updated entry. */
@@ -891,7 +912,7 @@ public class Controller {
     }
  
     /** Listens to entryTable. Handles single and double clicks on the variations column. */
-    protected class VariationMouseAdapter extends MouseAdapter {
+    public class VariationMouseAdapter extends MouseAdapter {
 	    @Override
 	    public void mouseClicked(MouseEvent evt) {
 	        int row = entryTable.rowAtPoint(evt.getPoint());
@@ -951,6 +972,7 @@ public class Controller {
 		                    entry.setMember( "Variation", Fretboard.getPermutationString(variations, updateVariation) );
 		                    entry.setMember( "Score", ranker.getScoreString(locations) );
 		                    // System.out.println( "TableMouseListener.mouseClicked updating vari=" + values[ 0 ] + "/" + currentVar + ", entry=" + entry ); 
+		                    // entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
 		                    entryTableModel.set(modelRow, entry);
 		                    updateVisuals( entry );
 		                    evt.consume();
@@ -962,4 +984,94 @@ public class Controller {
 	        } // VARIATIONS_COL
 	    } // mouseClicked
     } // class
+    
+    /** Listens to image icons. Will report on nearest location click. */
+    protected class LocationClickListener extends MouseAdapter {
+	    @Override
+	    public void mouseClicked(MouseEvent evt) {
+    		switch (evt.getButton()) {
+    		case MouseEvent.BUTTON1: {
+    			if (evt.getClickCount() == 1) {
+    				Component component = evt.getComponent();
+    				if ( JLabel.class.isAssignableFrom(component.getClass() )) {
+   					    boolean detailsPanel = component == fretsDetailsPanel;
+   					    boolean largePanel = component == fretsLargePanel;
+        				// Point screenLoc = evt.getLocationOnScreen();
+        				int x = evt.getX(); int y = evt.getY();
+        				// System.out.println( "LocationClickListener loc=(" + x + "," + y + "), details?=" + detailsPanel + ", large?=" + largePanel + ", component=" + (JLabel) component );
+
+        				Location nearest = null;
+        				if ( detailsPanel ) {
+        					nearest = RasterRenderer.getNearestLocation( new Point( x, y ), fretsDetailsPanel.getSize(), displayOpts, fretboard );
+        				} else if ( largePanel ) {
+        					nearest = RasterRenderer.getNearestLocation( new Point( x, y ), fretsLargePanel.getSize(), largeDisplayOpts, fretboard );
+        				}
+        				// System.out.println(  "LocationClickListener nearest=" + nearest );
+        				if ( null != nearest ) {
+        					updateEntryFromLocation( nearest );        					
+        				}
+    				} // JLabel
+    			} // click count 1
+    		} // case mouse button 1 2 3
+    		} // switch
+	    } // mouseClicked
+    } // class
+ 
+    public void updateEntryFromLocation( Location location ) {
+        int selection = getFirstSelected( entryTable );
+      
+        int modelIndex = -1;
+        ExtendedDisplayEntry entry = null;
+        if ( NONE_SELECTED == selection ) {
+        	entry = new ExtendedDisplayEntry();
+        } else {
+            modelIndex = entryTable.convertRowIndexToModel( selection );
+     	   	entry = entryTableModel.get( selection );
+       }
+        String locationString = (String) entry.getMember( "Locations" );
+        LocationList locations = LocationList.parseString( locationString );
+        if ( locations.contains( location )) 
+        	locations.remove( location );
+        else
+        	locations.add( location );
+        entry.setMember( "Locations", locations.toString() );
+
+        if ( locations.size() > 0 ) {
+	    	NoteList notes = new NoteList( locations.getNoteList( fretboard ));
+	    	entry.setMember( "Notes", notes.toString() );
+	
+	    	Location lowest = locations.get( 0 );
+	        Note root = lowest.getNote( fretboard );
+	    	entry.setMember( "Root", root.toString() );
+	    	entry.setMember( "Formula", locations.getFormula(fretboard, root) );
+	  
+	        // Find variationi
+	        List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+		    int permutations = Fretboard.getPermutationCount( variations );
+		    for( int variationi = 0; variationi < permutations; variationi++ ) {
+	   	       LocationList thisVariation = Fretboard.getPermutation(variations, variationi);
+		       if ( locations.equals( thisVariation )) {
+		           entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
+		    	   break;
+		       }
+		    }
+	        entry.setMember( "Score", ranker.getScoreString(locations) );
+	        // entry.setMember( "Comments", getCommentFromFormula( entry )); // make comment with nearest formula, variation
+	        
+	        if ( -1 == modelIndex )
+	        	entryTableModel.add( 0, entry );
+	        else
+	        	entryTableModel.set( modelIndex, entry );
+        } else {
+	    	entry.setMember( "Notes", "" );
+	    	entry.setMember( "Root", "" );
+	    	entry.setMember( "Formula", "" );
+            entry.setMember( "Variation", "" );
+	        entry.setMember( "Score", "" );
+            entry.setMember( "Comments", "" );
+        } // location list size
+        
+		updateVisuals( entry );
+		validateMaxScore();
+    }
 }

@@ -19,9 +19,9 @@ Demonstration
 
 TODOs
 ==========
-1. Complete Display editor panel.
-2. Allow display of scales, pentatonic boxes, etc.
-3. Hit testing on rendered fretboard images.
+1. Complete Display Option editor panel.
+2. Slider or button control of enharmonic and octave transparency.
+3. Look up of note/formula, find nearest name, place in comments.
 4. Chart making page. 
    Allow spreadsheet-like grid to display multiple fretboard displays
    Each grid entry can display complete model (fretboard, root, formula, notes/locations, variation, score)
