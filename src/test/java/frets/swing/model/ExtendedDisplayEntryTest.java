@@ -29,13 +29,13 @@ public class ExtendedDisplayEntryTest {
 	    ExtendedDisplayEntry ede = new ExtendedDisplayEntry( dem );
 	    
 	    // Test MultiValue interface
-	    assertEquals( 8, ede.getMemberCount() );
+	    assertEquals( 7, ede.getMemberCount() );
 	    assertEquals( "root", ede.getMember( "Root" )); // concat of "get" plus member name.
 	    assertEquals( "comments", ede.getMember( "Comments" ));
 	    
 	    String [] memberNames = ede.getMemberNames();
 	    assertNotNull( memberNames );
-	    assertEquals( 8, memberNames.length );
+	    assertEquals( 7, memberNames.length );
 	    assertEquals( "Formula", memberNames[ 1 ] );
 	    assertEquals( "Notes", memberNames[ 2 ] );
 	    
@@ -50,12 +50,6 @@ public class ExtendedDisplayEntryTest {
 	    
 	    assertEquals( "score", ede.getMember( 5 ) );
 	    assertEquals( "comments", ede.getMember( 6 ) );
-
-	    assertEquals( ".", ede.getMember( "ImagePath" ) );
-	    ede.setMember( "ImagePath", ".." );
-	    assertEquals( "..", ede.getMember( "ImagePath" ) );
-	    ede.setMember( 7, "." );
-	    assertEquals( ".", ede.getMember( "ImagePath" ) );
 	}
 
 	@Test

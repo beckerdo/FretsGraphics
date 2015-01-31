@@ -39,6 +39,9 @@ public class RasterRenderer {
 	@SuppressWarnings("unused")
 	private static final long serialVersionUID = 1L;
 
+	/** Used for changine color alpha values. */
+	public static final int NOT_GHOSTED = -1;
+	
 	public static final Shape upArrow = createArrow( 8, 8, 30, 270.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
 	public static final Shape downArrow = createArrow( 8, 8, 30, 90.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
 	public static final Shape leftArrow = createArrow( 8, 8, 30, 0.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
@@ -163,18 +166,20 @@ public class RasterRenderer {
 
 	    // Draw dots on fretboard.
 	    LocationList dots = new LocationList( "2-3,2-5,2-7,2-9,1-12,3-12,2-15"); 
-	    paintDots( fretboard, dots, g2d, size, displayOpts, true, fretMinStringMin, fretMaxStringMax ); 
-
-	    
+	    paintDots( fretboard, dots, g2d, size, displayOpts, 0x40, fretMinStringMin, fretMaxStringMax ); // Dots are ghosted to pick up fretboard color. 
+    
 	    Note root = null;
 	    String rootName = (String) entry.getMember( "Root" );
 	    if ( null != rootName ) {
 	    	root = new Note( rootName );
 	    	root.setOctave( 0 ); // set low so intervals are positive.
 	    }
-	    
-		// Draw variation locations with ghosting
-	    if ( displayOpts.showVariations ) {
+
+	    // Get location list from this particular variation.
+		LocationList locations = LocationList.parseString( (String) entry.getMember( "Locations" ));
+
+	    // Draw octave variation locations with octaveAlpha ghosting
+	    if ( displayOpts.showOctaveVariations ) {
 	    	// NoteList fmin = new NoteList( lowF, "R-b3-5-b7" );
 	    	String notesString = (String) entry.getMember( "Notes" );
 	    	if (( null != notesString) && ( notesString.length() > 0 )) {
@@ -187,16 +192,36 @@ public class RasterRenderer {
 		    		for ( LocationList enharmonics : variations ) {
 		    			variationLocations.addAll( enharmonics );	
 		    		}
-		    		// int permutations = Fretboard.getPermutationCount( variations  ); 
-		    		paintLocations( fretboard, variationLocations, root, g2d, size, displayOpts, true,
+		    		int octaveAlpha = displayOpts.octavesAlpha.getAlpha();
+		    		paintLocations( fretboard, variationLocations, root, g2d, size, displayOpts, octaveAlpha,
+			 	       fretMinStringMin, fretMaxStringMax );
+		    	}
+	    	}
+	    }
+	    
+	    // Draw enharmonic variation locations with enharmonicAlpha ghosting
+	    if ( displayOpts.showEnharmonicVariations ) {
+	    	// NoteList fmin = new NoteList( lowF, "R-b3-5-b7" );
+	    	String notesString = (String) entry.getMember( "Notes" );
+	    	if (( null != notesString) && ( notesString.length() > 0 )) {
+	    		NoteList notes =  new NoteList( notesString );
+		    	if ( null != notes ) {
+		    		List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+	
+		    		// Make a location list from all locations.
+		    		LocationList variationLocations = new LocationList();
+		    		for ( LocationList enharmonics : variations ) {
+		    			variationLocations.addAll( enharmonics );	
+		    		}
+		    		int enharmonicAlpha = displayOpts.enharmonicAlpha.getAlpha();
+		    		paintLocations( fretboard, variationLocations, root, g2d, size, displayOpts, enharmonicAlpha,
 			 	       fretMinStringMin, fretMaxStringMax );
 		    	}
 	    	}
 	    }
 	    
 	    // Draw normal locations with no ghosting.
-		LocationList locations = LocationList.parseString( (String) entry.getMember( "Locations" ));
-	    paintLocations( fretboard, locations, root, g2d, size, displayOpts, false,
+	    paintLocations( fretboard, locations, root, g2d, size, displayOpts, NOT_GHOSTED,
 	       fretMinStringMin, fretMaxStringMax ); 
 
 	    // Draw min fret numbers
@@ -442,24 +467,27 @@ public class RasterRenderer {
        return newColor;
     }
     
-    /** Changes color to monochromatic and see through. */
-    public static Color changeMonoAlpha( Color color ) {
+    /** Changes color to monochromatic and given alpha. */
+    public static Color changeMonoAlpha( Color color, float alpha ) {
        float mono = (0.2125f * color.getRed()) + (0.7154f * color.getGreen()) + (0.0721f * color.getBlue());
        if (mono < 0.0f) mono = 0.0f;
        if (mono > 1.0f) mono = 1.0f;
-       Color newColor = new Color ( mono, mono, mono, 0.5f );
+       Color newColor = new Color ( mono, mono, mono, alpha );
        return newColor;
     }
     
-    /** Changes color to monochromatic and see through. */
-    public static Color changeAlpha( Color color ) {
-       Color newColor = new Color ( color.getRed() / 255f, color.getGreen() / 255f, color.getBlue() / 255f, 0.25f );
+    /** Changes color to given alpha value. */
+    public static Color changeAlpha( Color color, int alpha ) {
+       Color newColor = new Color ( color.getRed(), color.getGreen(), color.getBlue(), alpha );
        return newColor;
     }
     
-    /** Draw dots on fretboard. Similar to paintLocations except dots are moved up 1/2 strin, down 1/2 fret. */
+    /** Draw dots on fretboard. Similar to paintLocations except dots are moved up 1/2 string, down 1/2 fret.
+     * If ghostAlpha is NOT_GHOSTED, displayOpts colors are used.
+     * If ghostAlpha is not NOT_GHOSTED, displayOpts colors plus the new alpha value is used.
+     */
     public static void paintDots( final Fretboard fretboard, final LocationList locations,  
-    		Graphics2D g2d, final Dimension size, final Display displayOpts, boolean ghosted,
+    		Graphics2D g2d, final Dimension size, final Display displayOpts, int ghostAlpha,
         	final Point fretMinStringMin, final Point fretMaxStringMax ) {
 	    if ( null == locations) return; 
 	    	
@@ -470,10 +498,10 @@ public class RasterRenderer {
     	
     	for ( int locationi = 0; locationi < locations.size(); locationi++ ) {
     		Location location = locations.get(locationi);
-            if ( !ghosted )
+            if ( NOT_GHOSTED == ghostAlpha )
             	g2d.setColor( Color.DARK_GRAY );
             else
-            	g2d.setColor( changeAlpha( Color.DARK_GRAY ));
+            	g2d.setColor( changeAlpha( Color.DARK_GRAY, ghostAlpha ));
 
     		// Check for fret greater or less than min or max display fret.
     		if (( location.getFret() > displayOpts.displayAreaMin.getFret() ) &&
@@ -489,9 +517,13 @@ public class RasterRenderer {
     	}
    }
 
-    /** Draw these locations on the given graphics. */
+    /** 
+     * Draw these locations on the given graphics. 
+     * If ghostAlpha is NOT_GHOSTED, displayOpts colors are used.
+     * If ghostAlpha is not NOT_GHOSTED, displayOpts colors plus the new alpha value is used.
+     */
     public static void paintLocations( final Fretboard fretboard, final LocationList locations, Note root, 
-    		Graphics2D g2d, final Dimension size, final Display displayOpts, boolean ghosted,
+    		Graphics2D g2d, final Dimension size, final Display displayOpts, int ghostAlpha,
         	final Point fretMinStringMin, final Point fretMaxStringMax ) {
 	    if ( null == locations) return;
 	    
@@ -508,10 +540,10 @@ public class RasterRenderer {
             Note thisNote = location.getNote( fretboard );
             if ( null != root ) {
             	int intValue = thisNote.getQuality( root ) % displayOpts.intervalColors.length;
-            	if ( !ghosted )
+            	if ( NOT_GHOSTED == ghostAlpha )
             		g2d.setColor( displayOpts.intervalColors[ intValue ] );
             	else
-            		g2d.setColor( changeAlpha( displayOpts.intervalColors[ intValue ] ));
+            		g2d.setColor( changeAlpha( displayOpts.intervalColors[ intValue ], ghostAlpha ));
             } else
             	g2d.setColor( displayOpts.defaultNoteColor );
 
@@ -520,21 +552,18 @@ public class RasterRenderer {
     			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
     			// Inside fret window
     			Point point = getLocation( size, displayOpts, location );
-    			if ( displayOpts.noteShadows && !ghosted ) {
+    			if ( displayOpts.noteShadows ) {
         			Color previousColor = g2d.getColor();
-    				if ( !ghosted )
+    				if ( NOT_GHOSTED == ghostAlpha )
     					g2d.setColor( displayOpts.noteShadowColor );
     				else
-    					g2d.setColor( changeAlpha( displayOpts.noteShadowColor ));
-		    		// g2d.setComposite( AlphaComposite.MIX );
+    					g2d.setColor( changeAlpha( displayOpts.noteShadowColor, ghostAlpha ));
 		    		Point shadowOffset = new Point( noteRadius / 4, noteRadius / 4 );
 	    			g2d.fillOval( point.x + shadowOffset.x - locationRadius, point.y + shadowOffset.y - locationRadius, locationDiameter, locationDiameter);
-		    		// g2d.setComposite( AlphaComposite.SRC );
 	    			g2d.setColor( previousColor );
     			}
     			g2d.fillOval( point.x - locationRadius, point.y - locationRadius, locationDiameter, locationDiameter);
     			
-
     			// Put interval or note name
 	    		String noteString = null;
 	    		if ( null == root ) {
@@ -543,10 +572,10 @@ public class RasterRenderer {
 	    		} else {
 	    			noteString = Note.getQualityName( thisNote, root );
 	            	int intValue = thisNote.getQuality( root ) % displayOpts.intervalColors.length;
-	            	if ( !ghosted )
+	            	if ( NOT_GHOSTED == ghostAlpha )
 	            		g2d.setColor( displayOpts.intervalTextColors[ intValue ] );
 	            	else
-	            		g2d.setColor( changeAlpha( displayOpts.intervalTextColors[ intValue ] ));
+	            		g2d.setColor( changeAlpha( displayOpts.intervalTextColors[ intValue ], ghostAlpha ));
 	    		}
 
 			    TextLayout layout = new TextLayout( noteString, textFont, g2d.getFontRenderContext() );

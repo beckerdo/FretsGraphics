@@ -708,7 +708,8 @@ public class Controller {
     	Display largeDisplayOpts = new Display( displayOpts );
     	largeDisplayOpts.orientation = Orientation.HORIZONTAL;
     	largeDisplayOpts.setDisplayAreaStyleMaxFretboard(fretboard);
-    	largeDisplayOpts.showVariations = true;
+    	largeDisplayOpts.showEnharmonicVariations = true;
+    	largeDisplayOpts.showOctaveVariations = true;
     	BufferedImage image = RasterRenderer.renderImage( fretsLargePanel.getSize(), largeDisplayOpts, fretboard, selectedEntry );        	
         return image;
     }
