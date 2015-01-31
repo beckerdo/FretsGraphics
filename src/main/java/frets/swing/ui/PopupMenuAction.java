@@ -69,9 +69,9 @@ public class PopupMenuAction extends JPopupMenu implements ActionListener {
             	case "Save":
             		try {
             		   String fileName = Controller.writeImage( image, entryDetails ); 
-                       System.out.println( "PopupMenuAction.actionPerformed save to \"" + fileName + "\"." );
+                       System.out.println( "PopupMenuAction.actionPerformed saved to \"" + fileName + "\"." );
             		} catch ( IOException e ) {
-            			System.out.println( "PopupMenuAction exception: " + e );
+            		   System.out.println( "PopupMenuAction exception: " + e );
             		}
             		break; 
             	case "Copy": 

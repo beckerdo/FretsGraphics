@@ -1,5 +1,6 @@
 package frets.swing.ui;
 
+import java.awt.AlphaComposite;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -35,7 +36,9 @@ import frets.swing.model.ExtendedDisplayEntry;
 // TODO - String thicknesses, but it might need anti aliasing. 
 // TODO - Wound strings?
 public class RasterRenderer { 
+	@SuppressWarnings("unused")
 	private static final long serialVersionUID = 1L;
+
 	public static final Shape upArrow = createArrow( 8, 8, 30, 270.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
 	public static final Shape downArrow = createArrow( 8, 8, 30, 90.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
 	public static final Shape leftArrow = createArrow( 8, 8, 30, 0.0, 1.0 ); // 0 right, 90 down, 180 left, 270 up
@@ -48,7 +51,7 @@ public class RasterRenderer {
 	}
 	
 	public void setSize( Dimension size ) {
-	    bufferedImage = new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_RGB);		
+	    bufferedImage = new BufferedImage(size.width, size.height, BufferedImage.TYPE_INT_ARGB);		
 	}
 		
 	// Returns a generated image.
@@ -67,7 +70,9 @@ public class RasterRenderer {
 		RasterRenderer rr = new RasterRenderer( size );
 	    Graphics2D g2d = rr.bufferedImage.createGraphics();
 	    g2d.setRenderingHint( RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON );
-	    g2d.setColor( displayOpts.backgroundColor );
+	    g2d.setRenderingHint( RenderingHints.KEY_ALPHA_INTERPOLATION, RenderingHints.VALUE_ALPHA_INTERPOLATION_SPEED );
+	    // Background color is made opaque UI component. Make transparent here.
+	    g2d.setColor( displayOpts.backgroundColor ); // can have alpha
 	    g2d.fillRect(0, 0, size.width, size.height);
 	    
 		// Need to replace by dynamic calculations

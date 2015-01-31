@@ -96,7 +96,7 @@ public class Controller {
     public static final int SCORE_COL = 5;
 
     // A hack, but want to preserve score columns with no score available
-    public static final int [] VISUALIZER_EMPTY_SCORE = new int [] { 0, 0, 0, 0, 0 };
+    public static final int [] BARCHART_EMPTY_SCORE = new int [] { 0, 0, 0, 0, 0 };
     
     protected final static Random random = new Random();
     protected final static ResourceBundle resources = Application.getInstance().getResourceBundle();
@@ -117,7 +117,7 @@ public class Controller {
     private JLabel fretsDetailsPanel;
     private JLabel fretsLargePanel;    
     
-    private BarChartVisualizer visualizer;
+    private BarChartVisualizer scoreBarChart;
     private int maxSumScore = Integer.MIN_VALUE;
     private int minSumScore = Integer.MAX_VALUE;
 
@@ -138,11 +138,12 @@ public class Controller {
         addEntry( NULL_ENTRY ); // add a random entry        
     }
 
+    /** Adds a random entry */
     public void addEntry() {
-        addEntry( randomEntry( 10 )); // add a random entry        
+        addEntry( randomEntry( 10 ));        
     }
 
-    // Adds a new displayEntry
+    /** Adds an entry to the entry table. */
     public void addEntry( ExtendedDisplayEntry entry ) {
        	System.out.println( "Controller.addEntry entry=" + entry );
         // Add the entry to the end of the list.
@@ -154,7 +155,7 @@ public class Controller {
     }
 
     /** 
-     * Get an entry that is below the given max score.
+     * Returns a random entry that is below the given max score.
      * RETRY_MAX limits the number of tries.
      */
     public ExtendedDisplayEntry randomEntry( int scoreMax ) {
@@ -199,7 +200,7 @@ public class Controller {
         return entry;	   
     }
      
-    // Adds ten best score variations on selected entry
+    /** Adds to the entry table ten best score variations on selected entry */
     public void varyTen() {
     	int [] selectedRows = entryTable.getSelectedRows();
     	if (( null != selectedRows ) && (selectedRows.length > 0)) {
@@ -225,7 +226,7 @@ public class Controller {
     	}
     }
 
-    // Adds ALL variations on selected entry
+    /** Add to the entry table ALL variations on selected entry. */
     public void varyAll() {
     	int [] selectedRows = entryTable.getSelectedRows();
     	if (( null != selectedRows ) && (selectedRows.length > 0)) {
@@ -245,6 +246,7 @@ public class Controller {
     	}
     }
 
+    /** Returns the first count variations of the given entry sorted by score. */
     public List<ExtendedDisplayEntry> getVariations( ExtendedDisplayEntry entry, int count ) {
     	if ( null == entry) return null;
         // Vary the provided entry.
@@ -280,6 +282,7 @@ public class Controller {
         return entryVariations;	   
     }
      
+    /** Deletes the selected rows from the table and model. */
     public void deleteSelection() {
     	boolean needsUpdate = false;
     	int [] selectedRows = entryTable.getSelectedRows();
@@ -299,11 +302,12 @@ public class Controller {
     	}
     }
     
+    /** Deletes the selected rows from the table and model. */
     public void deleteAll() {
 		entryTableModel.clear();
         disableControls();       
     }
-    
+
 	public void exportImage( boolean details ) {
 		int imageCount = 0;
 		int[] selectedRows = entryTable.getSelectedRows();
@@ -337,6 +341,7 @@ public class Controller {
      }
     
 
+    /** Writes the given entry to a file name of "<export.path>/frets<entryDetails>,<fileCount>.png" */
 	public static String writeImage(BufferedImage image, String entryDetails) 
 		throws IOException {
 		// BufferedImage image = SafeIcon.provideImage(icon);
@@ -347,8 +352,11 @@ public class Controller {
 		}
 		String sep = System.getProperty("file.separator");
 		String fileName = path + sep + "frets.png";
-		if (null != entryDetails)
+		// System.out.println( "Controller.writeImage entryDetails=" + entryDetails);
+		if ((null != entryDetails) && (entryDetails.length() > 0))
 			fileName = path + sep + "frets," + entryDetails + ".png";
+		else
+			fileName = path + sep + "frets.png";
 		File file = new File( fileName );
 		int fileCount = 0;
 		while (( file.exists() ) && ( fileCount <= 100 )) {
@@ -356,7 +364,10 @@ public class Controller {
 				System.out.println( "Controller.writeImage could not write. Too many file versions in \"" + path + "\" path.");
 				return null;
 			}
-			fileName = path + sep + "frets," + entryDetails + "," + ++fileCount + ".png";
+			if ((null != entryDetails) && (entryDetails.length() > 0))
+				fileName = path + sep + "frets," + entryDetails + "," + ++fileCount + ".png";
+			else
+				fileName = path + sep + "frets" + "," + ++fileCount + ".png";
 			file = new File( fileName );
 		}
 		
@@ -391,9 +402,9 @@ public class Controller {
         fretsLargePanel.setIcon( null );
         fretsLargePanel.setToolTipText( null );
         
-  	    visualizer.setMaxValue( 0 );
-        visualizer.setColumns( VISUALIZER_EMPTY_SCORE );
-        visualizer.setAnimatesTransitions( true );
+  	    scoreBarChart.setMaxValue( 0 );
+        scoreBarChart.setColumns( BARCHART_EMPTY_SCORE );
+        scoreBarChart.setAnimatesTransitions( true );
 
         commentsTP.setText("");
         commentsTP.setEditable(false);
@@ -407,7 +418,8 @@ public class Controller {
         return true;
     }
 
-    private void createFrameComponents() {
+    /** Creates all the components in the main frame. */
+    protected void createFrameComponents() {
         fretboardTF = new JTextField(15);
         rankerTF = new JTextField(15);
         filterTF = new JTextField(15);
@@ -417,16 +429,20 @@ public class Controller {
         // detailsImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
         fretsDetailsPanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
         fretsDetailsPanel.setPreferredSize(new Dimension(150, 150));
-        fretsDetailsPanel.setBackground( displayOpts.backgroundColor );
+        // Provide an opaque background
+        Color bg = displayOpts.backgroundColor;
+        Color opaquebg = new Color( bg.getRed(), bg.getGreen(), bg.getBlue(), 0xff );
+        fretsDetailsPanel.setBackground( opaquebg );
         fretsDetailsPanel.setOpaque(true);
         fretsDetailsPanel.setToolTipText( null );
         fretsDetailsPanel.addMouseListener(new PopupMenuListener( ));
         
-        visualizer = new BarChartVisualizer();
-        visualizer.setOpaque(false);
+        scoreBarChart = new BarChartVisualizer();
+  	    scoreBarChart.setMaxValue( 0 );
+        scoreBarChart.setColumns( BARCHART_EMPTY_SCORE );
+        scoreBarChart.setOpaque(false);
         // Makes it align with image
-        visualizer.setBorder(new EmptyBorder(5, 5, 5, 5));
-        visualizer.setColumns( VISUALIZER_EMPTY_SCORE );
+        scoreBarChart.setBorder(new EmptyBorder(5, 5, 5, 5));
 
         commentsTP = new JTextPane();
 
@@ -434,13 +450,14 @@ public class Controller {
         // largeImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
         fretsLargePanel.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
         fretsLargePanel.setPreferredSize(new Dimension(800, 150));
-        fretsLargePanel.setBackground( displayOpts.backgroundColor );
+        fretsLargePanel.setBackground( opaquebg );
         fretsLargePanel.setOpaque(true);
         fretsLargePanel.setToolTipText( null );
         fretsLargePanel.addMouseListener(new PopupMenuListener());
     }
     
-    private void createUI(JFrame frame) {
+    /** Creates all the UI components in the given frame. */
+    protected void createUI(JFrame frame) {
         JTabbedPane tabbedPane = new JTabbedPane();
         tabbedPane.addTab(Application.getResourceAsString("tab.details"), createDetailsPanel());
         tabbedPane.addTab(Application.getResourceAsString("tab.comments"), null);
@@ -488,8 +505,8 @@ public class Controller {
         frame.getContentPane().add( splitPane );
     }
     
-    // Creates and populates the menu for the app
-    private void createMenu(JFrame frame) {
+    /** Creates and populates the main menu bar for the app. */
+    protected void createMenu(JFrame frame) {
         JMenuBar menuBar = new JMenuBar();
         frame.setJMenuBar(menuBar);
 
@@ -544,8 +561,8 @@ public class Controller {
     }
 
     
-    // Convenience to create a configure a JMenuItem.
-    private JMenuItem createMenuItem(JMenu menu, String key, Action action) {
+    /** Convenience to create a configure a JMenuItem. */
+    protected JMenuItem createMenuItem(JMenu menu, String key, Action action) {
         JMenuItem mi;
         if (action != null) {
             mi = new JMenuItem(action);
@@ -557,12 +574,13 @@ public class Controller {
         return mi;
     }
     
-    private Component createDetailsPanel() {
+    /** Creates the details panel, tiny panel with five fret port. */
+    protected Component createDetailsPanel() {
         JPanel detailsWrapper = new JPanel(new BorderLayout());
         detailsWrapper.setOpaque(false);
         detailsWrapper.setBorder(new DropShadowBorder(Color.BLACK, 0, 5, .5f, 12, false, true, true, true));
         detailsWrapper.add(fretsDetailsPanel);
-        detailsWrapper.add( "South", visualizer);
+        detailsWrapper.add( "South", scoreBarChart);
 
         JPanel panel = new JPanel(new BorderLayout());
         panel.setOpaque(false);
@@ -571,9 +589,9 @@ public class Controller {
         return panel;
     }
     
-    private Component createNotesPanel() {
-        createNotesTextPane();
-        JPanel panel = new JPanel();
+    /** Return a big panel that can handle comments and notes editing. */
+    protected Component createCommentsPanel() {
+		JPanel panel = new JPanel();
         panel.setOpaque(false);
         GroupLayout layout = new GroupLayout(panel);
         layout.setAutoCreateContainerGaps(true);
@@ -592,18 +610,7 @@ public class Controller {
         return panel;
     }
     
-	private void createNotesTextPane() {
-		SimpleAttributeSet urlAttributes = new SimpleAttributeSet();
-		StyleConstants.setForeground(urlAttributes, Color.blue);
-		StyleConstants.setBackground(urlAttributes, Color.white);
-		StyleConstants.setUnderline(urlAttributes, true);
-		RegExStyler styler = new RegExStyler(commentsTP);
-		styler.addStyle("(http|ftp)://[_a-zA-Z0-9./~\\-]+", urlAttributes,
-				Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
-		// commentsTP.getDocument().addDocumentListener(new DocumentHandler());
-		// commentsTP.addMouseListener(new NotesMouseHandler(styler)); // looks up URIs in notes
-	}
-
+    /** Create a big panel that can handle comments and notes editing. */
     private Component createDisplayEditorPanel() {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
@@ -626,6 +633,7 @@ public class Controller {
         return panel;
     }
     
+    /** Creates main table to display entry model. */
     @SuppressWarnings("serial")
 	protected  void createEntryTable( EntryTableModel entryTableModel) {
         entryTable = new JTable( entryTableModel ){
@@ -792,19 +800,24 @@ public class Controller {
 
     /** Updates the main display from an updated entry. */
     protected void updateVisuals( ExtendedDisplayEntry entry ) {
-    	String entryText = getShortName( entry);
+    	String entryText = getShortName( entry );
         // System.out.println( "Controller.updateVisuals entry=" + entry );
     	
     	fretsDetailsPanel.setIcon( new ImageIcon( getDetailsImage( entry ) ));
-        fretsDetailsPanel.setToolTipText( entryText );
+        if (( null != entryText ) && ( entryText.length() > 0) )
+        	fretsDetailsPanel.setToolTipText( entryText );
         fretsLargePanel.setIcon( new ImageIcon( getLargeImage( entry )) );
-        fretsLargePanel.setToolTipText( entryText );
+        if (( null != entryText ) && ( entryText.length() > 0) )
+        	fretsLargePanel.setToolTipText( entryText );
         
         String scoreString = (String) entry.getMember( "Score" );
         // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
         int [] scores = ChordRank.toScores( scoreString );
-        visualizer.setColumns( scores );
-        visualizer.repaint();    	
+        if (( null != scores ) && (scores.length > 1))
+        	scoreBarChart.setColumns( scores );
+        else
+            scoreBarChart.setColumns( BARCHART_EMPTY_SCORE );        	
+        scoreBarChart.repaint();    	
     }
     
     // Ensure the new list items update the max score.
@@ -822,8 +835,8 @@ public class Controller {
           	   minSumScore = sumScore;
              }    		
     	}
-  	    visualizer.setMaxValue( maxSumScore );
-        visualizer.repaint();    	
+  	    scoreBarChart.setMaxValue( maxSumScore );
+        scoreBarChart.repaint();    	
     }
 
     public final class TabbedPaneChangeHandler implements ChangeListener {
@@ -834,9 +847,9 @@ public class Controller {
         }
         
         public void stateChanged(ChangeEvent e) {
-            if (tp.getSelectedIndex() == 1 && tp.getComponentAt(1) == null) {
-                tp.setComponentAt(1, createNotesPanel());
-            }
+//            if (tp.getSelectedIndex() == 1 && tp.getComponentAt(1) == null) {
+//                tp.setComponentAt(1, createNotesPanel());
+//            }
             // int selectedIndex = tp.getSelectedIndex();
         }
     }
@@ -849,10 +862,16 @@ public class Controller {
     	if ( null == entry )
     		return null;
     	StringBuilder sb = new StringBuilder( );
-    	sb.append( entry.getMember("Root") );
-		sb.append( ENTRY_NAME_DELIM );
-		sb.append( entry.getMember("Formula"));
-		sb.append( ENTRY_NAME_DELIM );
+    	String root = (String) entry.getMember("Root") ;
+    	if ( null != root ) 
+    		sb.append( root );
+    	if ( sb.length() > 0 )
+    		sb.append( ENTRY_NAME_DELIM );
+    	String formula = (String) entry.getMember("Formula");
+    	if ( null != formula )
+    		sb.append( entry.getMember("Formula"));
+    	if ( sb.length() > 0 )
+    		sb.append( ENTRY_NAME_DELIM );
 		// Example variation string "6/8 (012/124)"
 	    String variation = 	(String) entry.getMember("Variation");
 	    if ( null != variation ) {
@@ -861,11 +880,11 @@ public class Controller {
 		    	sb.append( values[ 0 ] + "-" + values[ 1 ] );		    	
 		    }
 	    }        	    
-		// Example string "G2,R-3-5,6-8"
+		// Example string "G2,R-3-5,6-8", or if entry is empty ""
    	    return sb.toString();
     }
  
-    /** Handles single and double clicks on the variations column. */
+    /** Listens to entryTable. Handles single and double clicks on the variations column. */
     protected class VariationMouseAdapter extends MouseAdapter {
 	    @Override
 	    public void mouseClicked(MouseEvent evt) {

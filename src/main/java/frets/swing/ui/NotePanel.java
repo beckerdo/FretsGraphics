@@ -61,7 +61,6 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 
 	protected synchronized void initGUI() {
         note = new Note( 2, Note.Name.C.getValue() ); // middle C
-
         handler = new PropertyChangeSupport( note );
 
         // LayoutManager layout = new GridLayout( 1, 2 );
@@ -115,8 +114,12 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
 		String command = event.getActionCommand();
         // System.out.println( "actionPerformed source=" + source + ", command=" + command );					
         // System.out.println( "NotePanel.actionPerformed keyboard command=" + command );
-		Note oldNote = new Note( note );
-        note.setValue( (new Note( command )).getValue() );
+		Note oldNote = new Note( this.note );
+		Note newNote = new Note( command );
+		// Strange bug where note is null, not inited by initGUI
+		if ( null == note)
+	        note = new Note( 2, Note.Name.C.getValue() ); // middle C
+        note.setValue( newNote.getValue() );
 		PropertyChangeEvent propEvent = new PropertyChangeEvent( note, EVENT_NAME, oldNote, note);
 		firePropertyChange( propEvent );
 	}
@@ -210,11 +213,11 @@ public class NotePanel extends JPanel implements ActionListener, ChangeListener,
         Window window = NotePanel.getWindowForComponent(parent);
         NoteChooserDialog dialog;
         if (window instanceof Frame) {
-        	System.out.println( "NoteEditor creating dialog for window");
-             dialog = new NoteChooserDialog((Frame)window, title, modal, parent, chooserPane, okListener, cancelListener);
+        	// System.out.println( "NoteEditor creating dialog for window");
+            dialog = new NoteChooserDialog((Frame)window, title, modal, parent, chooserPane, okListener, cancelListener);
         } else {
-        	System.out.println( "NoteEditor creating dialog for frame");
-             dialog = new NoteChooserDialog((Dialog)window, title, modal, parent, chooserPane, okListener, cancelListener);
+        	// System.out.println( "NoteEditor creating dialog for frame");
+            dialog = new NoteChooserDialog((Dialog)window, title, modal, parent, chooserPane, okListener, cancelListener);
         }
         dialog.getAccessibleContext().setAccessibleDescription(title);
         return dialog;
