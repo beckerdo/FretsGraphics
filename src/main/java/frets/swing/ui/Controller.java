@@ -67,6 +67,7 @@ import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 
+// TODO - Better short name algorithm. Shorten scale name such as "F3,R-b3-4-5-b7-R-b3-4-5-b7-b3-4,14138-15552" to "F3,R-b3-4-5-b7,14138-15552"
 // TODO - Better layout. Resize to take advantage of large screens.
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
 // TODO - User interface to perform inversions
