@@ -151,8 +151,13 @@ public class Controller {
 
     }
 
+    /** Adds a blank entry */
+    public void addBlank() {
+        addEntry( new ExtendedDisplayEntry());        
+    }
+
     /** Adds a random entry */
-    public void addEntry() {
+    public void addRandom() {
         addEntry( randomEntry( 10 ));        
     }
 
@@ -567,9 +572,12 @@ public class Controller {
                 
         JMenu entryMenu = MnemonicHelper.createMenu( resources.getString("menu.entry"));
         menuBar.add(entryMenu);
-        JMenuItem addMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.newEntry"));
-        addMenuItem.addActionListener(new DynamicAction(this, "addEntry"));
-        addMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl R"));
+        JMenuItem addBlankItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.newBlank"));
+        addBlankItem.addActionListener(new DynamicAction(this, "addBlank"));
+        addBlankItem.setAccelerator(KeyStroke.getKeyStroke("ctrl B"));
+        JMenuItem addRandomItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.newRandom"));
+        addRandomItem.addActionListener(new DynamicAction(this, "addRandom"));
+        addRandomItem.setAccelerator(KeyStroke.getKeyStroke("ctrl R"));
         JMenuItem deleteMenuItem = MnemonicHelper.createMenuItem(entryMenu, resources.getString("menu.deleteSelected"));
         deleteMenuItem.addActionListener(new DynamicAction(this, "deleteSelection"));
         deleteMenuItem.setAccelerator(KeyStroke.getKeyStroke("ctrl D"));
