@@ -67,6 +67,7 @@ import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 
+// TODO - Better layout. Resize to take advantage of large screens.
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
 // TODO - User interface to perform inversions
 // TODO - Pentatonic box formulas. Shorten formula G2 R-b3-4-5-b7-R-b3-4-5-b7-R-b3	
@@ -829,7 +830,7 @@ public class Controller {
         // entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
     }
 
-    /** Updates the main display from an updated entry. */
+    /** Updates the main display from an updated entry. Works with null or blank entries. */
     protected void updateVisuals( ExtendedDisplayEntry entry ) {
     	String entryText = getShortName( entry );
         // System.out.println( "Controller.updateVisuals entry=" + entry );
@@ -837,9 +838,13 @@ public class Controller {
     	fretsDetailsPanel.setIcon( new ImageIcon( getDetailsImage( entry ) ));
         if (( null != entryText ) && ( entryText.length() > 0) )
         	fretsDetailsPanel.setToolTipText( entryText );
+        else
+        	fretsDetailsPanel.setToolTipText( null );
         fretsLargePanel.setIcon( new ImageIcon( getLargeImage( entry )) );
         if (( null != entryText ) && ( entryText.length() > 0) )
         	fretsLargePanel.setToolTipText( entryText );
+        else
+        	fretsLargePanel.setToolTipText( null );
         
         String scoreString = (String) entry.getMember( "Score" );
         // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
@@ -1077,6 +1082,7 @@ public class Controller {
             entry.setMember( "Variation", "" );
 	        entry.setMember( "Score", "" );
             entry.setMember( "Comments", "" );
+        	entryTableModel.set( modelIndex, entry );
         } // location list size
         
 		updateVisuals( entry );
