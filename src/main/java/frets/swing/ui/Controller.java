@@ -67,6 +67,8 @@ import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 
+// TODO - Drop down and fretboard selection.
+// TODO - Ukelele and baritone fretboard properties
 // TODO - Better short name algorithm. Shorten scale name such as "F3,R-b3-4-5-b7-R-b3-4-5-b7-b3-4,14138-15552" to "F3,R-b3-4-5-b7,14138-15552"
 // TODO - Better layout. Resize to take advantage of large screens.
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
@@ -75,6 +77,7 @@ import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 // TODO - Match location list to root and formula. Populate common chord name in comments.
 // TODO - Add filtering or remove completely.
 // TODO - Redo score to be a weighted composite. Also add string span as a metric.
+// TODO - Consider score for enharmonics. For instance, although 1 entry, this is the best/worst of 6 enharmonics.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny.
 /**
  * The Controller for the Frets application. Controller gets its name
