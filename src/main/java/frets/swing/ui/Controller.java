@@ -67,10 +67,12 @@ import frets.main.Display.Orientation;
 import frets.swing.model.ExtendedDisplayEntry;
 import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 
+// TODO - Support fret spacing progression. Measure real guitar fretboard for width, progression.
+// TODO - Factor out point to location, location to point from RasterRenderer.java
+// TODO - Better layout. Resize to take advantage of large screens. Maintain fretboard aspect ratio.
 // TODO - Drop down and fretboard selection.
 // TODO - Ukelele and baritone fretboard properties
 // TODO - Better short name algorithm. Shorten scale name such as "F3,R-b3-4-5-b7-R-b3-4-5-b7-b3-4,14138-15552" to "F3,R-b3-4-5-b7,14138-15552"
-// TODO - Better layout. Resize to take advantage of large screens.
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
 // TODO - User interface to perform inversions
 // TODO - Pentatonic box formulas. Shorten formula G2 R-b3-4-5-b7-R-b3-4-5-b7-R-b3	
