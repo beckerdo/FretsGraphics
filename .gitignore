@@ -1,5 +1,6 @@
 .settings
 .project
 .classpath
+*.DS_Store
 export
 target

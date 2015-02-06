@@ -1,22 +1,13 @@
 package frets.swing.ui;
 
 import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.Graphics;
-import java.awt.Graphics2D;
-import java.awt.Insets;
-import java.awt.Polygon;
-import java.awt.Rectangle;
 import java.awt.Shape;
-import java.awt.event.ComponentAdapter;
-import java.awt.event.ComponentEvent;
 import java.awt.event.MouseEvent;
 import java.awt.event.MouseListener;
 
 import frets.main.Note;
 
 import javax.swing.BorderFactory;
-import javax.swing.JComponent;
 import javax.swing.JToggleButton;
 
 /** A component that detects hits and has a piano key shape.

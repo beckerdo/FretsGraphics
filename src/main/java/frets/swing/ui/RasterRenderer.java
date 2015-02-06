@@ -306,8 +306,8 @@ public class RasterRenderer {
 
 	/** 
 	 * Converts a fretboard location into a point location.
-	 * The point location is influenced by display options and
-	 * the intended fret window to be displayed. 
+	 * The point location is influenced by display options as documented
+	 * in @see {@link RasterRenderer#getLocationPoint(Dimension, Display, float, float)}.
 	 */
 	public static Point getLocationPoint( Dimension size, Display displayOpts, Location location ) {
 		return getLocationPoint( size, displayOpts, location.getString(), location.getFret() );		
@@ -316,11 +316,19 @@ public class RasterRenderer {
 	
 	/** 
 	 * Converts a fretboard location into a point location.
-	 * The point location is influenced by display options and
-	 * the intended fret window to be displayed.
 	 * <p>
 	 * This version of the API can handle fractional and
-	 * outside the display area strings and frets 
+	 * outside the display area strings and frets.
+	 * For example, negative string and fret values can be used to
+	 * get locations for fret numbering, open string values, and
+	 * things that do not appear directly on the fretboard.
+	 * <p> 
+	 * The point location is influenced by display options:
+	 * <li>orientation determines vertical or horizontal placement.
+	 * <li>hand determines string and fret mirroring.
+	 * <li>insets determines open space around fretboard.
+	 * <li>display area min and max determine view portal.
+	 * </ul>
 	 */
 	public static Point getLocationPoint( Dimension size, Display displayOpts, float string, float fret ) {
 		// Note: y axis is inverted. 0 at top, height at base.
@@ -378,13 +386,18 @@ public class RasterRenderer {
 
 	/** 
 	 * Converts a point location into the nearest fretboard location.
-	 * The point location is influenced by display options and
-	 * the intended fret window to be displayed.
-	 * The point may be on or off the fretboard.
 	 * The location may be occupied or unoccupied by a note.
 	 * <p>
-	 * This version of the API can handle fractional and
-	 * outside the display area strings and frets 
+	 * This version of the API can handle points off the fretboard and finds
+	 * the nearest location on the fretboard.
+	 * <p> 
+	 * The point location is influenced by display options:
+	 * <li>orientation determines vertical or horizontal placement.
+	 * <li>hand determines string and fret mirroring.
+	 * <li>insets determines open space around fretboard.
+	 * <li>display area min and max determine view portal.
+	 * </ul>
+	 *  
 	 */
 	public static Location getNearestLocation( Point p1, Dimension size, Display displayOpts, Fretboard fretboard)  {
 		// System.out.println( "RasterRenderer loc=(" + p1.x + "," + p1.y + "), size=(" + size.getWidth() + "," + size.getHeight() + ")" );
@@ -392,6 +405,7 @@ public class RasterRenderer {
 			return null;
 
 	    // Find every location and point on fretboard within the portal.
+		// Consider caching location to point and point to location for each fretboard/size/displayOpts.
     	Map<Location,Point> locationToPoint = new HashMap<Location,Point>();
     	Map<Point,Location> pointToLocation = new HashMap<Point,Location>();
 	    // Iterate through strings.
