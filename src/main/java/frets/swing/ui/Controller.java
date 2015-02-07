@@ -77,7 +77,6 @@ import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 // TODO - User interface to perform inversions
 // TODO - Pentatonic box formulas. Shorten formula G2 R-b3-4-5-b7-R-b3-4-5-b7-R-b3	
 // TODO - Match location list to root and formula. Populate common chord name in comments.
-// TODO - Add filtering or remove completely.
 // TODO - Redo score to be a weighted composite. Also add string span as a metric.
 // TODO - Consider score for enharmonics. For instance, although 1 entry, this is the best/worst of 6 enharmonics.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny.
@@ -111,16 +110,13 @@ public class Controller {
 
     private Fretboard fretboard;
     private ChordRank ranker;
+    private JTextField fretboardTF;
+    private JTextField rankerTF;
 
     // The list of items displayed in the table.
     protected EntryTableModel entryTableModel;
     protected JTable entryTable;    
     
-    // Shared entry fields
-    private JTextField fretboardTF;
-    private JTextField rankerTF;
-    private JTextField filterTF;
-
     // Image display fields
     private JLabel fretsDetailsPanel;
     private JLabel fretsLargePanel;    
@@ -138,7 +134,7 @@ public class Controller {
     private static AboutBox aboutBox;
     
     public Controller(JFrame host) {
-    	System.out.println( "FretsController cons");
+    	System.out.println( "Controller cons");
 
         // Some post init
         String defaultFretboard = resources.getString("default.fretboard");
@@ -434,15 +430,13 @@ public class Controller {
                 resources.getString( "aboutBox.background.location" )
           	);    		
     	}
-       aboutBox.show(SwingUtilities.getWindowAncestor(filterTF));
+       aboutBox.show(SwingUtilities.getWindowAncestor(fretboardTF));
     }
 
     // Disables the controls (e.g. after deleteAll or if an invalid entry has been selected) 
     public void disableControls() {
         fretboardTF.setEditable(false);
         rankerTF.setEditable(false);
-        filterTF.setEditable(false);
-        filterTF.setText("");
         
         fretsDetailsPanel.setIcon( null );
         fretsDetailsPanel.setToolTipText( null );
@@ -469,8 +463,6 @@ public class Controller {
     protected void createFrameComponents() {
         fretboardTF = new JTextField(15);
         rankerTF = new JTextField(15);
-        filterTF = new JTextField(15);
-        // filterTF.getDocument().addDocumentListener(new FilterDocumentHandler());
                 
         fretsDetailsPanel = new JLabel();
         // detailsImagePanel.setBorder( new CompoundBorder(new LineBorder(Color.DARK_GRAY, 1),  new EmptyBorder(2, 2, 2, 2)));
@@ -528,9 +520,6 @@ public class Controller {
 		rankerTF.setText( ranker.getMetaName() );
 		rankerTF.setEditable( false );
         fixedPanel.add( rankerTF );
-        JLabel filterLabel = new JLabel(resources.getString("label.filter"));
-        fixedPanel.add( filterLabel );
-        fixedPanel.add( filterTF );
 
         // Create table in a view port.
         entryTableModel = new EntryTableModel();
