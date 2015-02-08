@@ -6,8 +6,10 @@ import java.awt.Component;
 import java.awt.Dimension;
 import java.awt.FontMetrics;
 import java.awt.Point;
+import java.awt.event.ActionEvent;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.event.ActionListener;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -21,6 +23,7 @@ import javax.imageio.ImageIO;
 import javax.swing.Action;
 import javax.swing.GroupLayout;
 import javax.swing.ImageIcon;
+import javax.swing.JComboBox;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
 import javax.swing.JMenu;
@@ -48,7 +51,6 @@ import javax.swing.table.JTableHeader;
 import javax.swing.table.TableColumn;
 import javax.swing.table.TableColumnModel;
 
-
 import swingextensions.swingx.CutCopyPasteHelper;
 import swingextensions.swingx.DropShadowBorder;
 import swingextensions.swingx.DynamicAction;
@@ -56,6 +58,7 @@ import swingextensions.swingx.MnemonicHelper;
 import swingextensions.swingx.app.Application;
 import swingextensions.ui.AboutBox;
 import swingextensions.ui.BarChartVisualizer;
+
 import frets.main.ChordRank;
 import frets.main.Display;
 import frets.main.Fretboard;
@@ -70,11 +73,9 @@ import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 // TODO - Support fret spacing progression. Measure real guitar fretboard for width, progression.
 // TODO - Factor out point to location, location to point from RasterRenderer.java
 // TODO - Better layout. Resize to take advantage of large screens. Maintain fretboard aspect ratio.
-// TODO - Drop down and fretboard selection.
-// TODO - Ukelele and baritone fretboard properties
-// TODO - Better short name algorithm. Shorten scale name such as "F3,R-b3-4-5-b7-R-b3-4-5-b7-b3-4,14138-15552" to "F3,R-b3-4-5-b7,14138-15552"
 // TODO - Variations are tied to root note. For example C3 chords cannot find C4 as variations. Fix.
 // TODO - User interface to perform inversions
+// TODO - Better short name algorithm. Shorten scale name such as "F3,R-b3-4-5-b7-R-b3-4-5-b7-b3-4,14138-15552" to "F3,R-b3-4-5-b7,14138-15552"
 // TODO - Pentatonic box formulas. Shorten formula G2 R-b3-4-5-b7-R-b3-4-5-b7-R-b3	
 // TODO - Match location list to root and formula. Populate common chord name in comments.
 // TODO - Redo score to be a weighted composite. Also add string span as a metric.
@@ -109,8 +110,9 @@ public class Controller {
     protected final static ResourceBundle resources = Application.getInstance().getResourceBundle();
 
     private Fretboard fretboard;
+    private JComboBox<String> fretboardChooser;
+    private JLabel fretboardDescription;
     private ChordRank ranker;
-    private JTextField fretboardTF;
     private JTextField rankerTF;
 
     // The list of items displayed in the table.
@@ -138,7 +140,7 @@ public class Controller {
 
         // Some post init
         String defaultFretboard = resources.getString("default.fretboard");
-		fretboard = Fretboard.instance.getInstance( defaultFretboard );
+		fretboard = Fretboard.getInstanceFromName( defaultFretboard );
     	displayOpts.orientation = Orientation.VERTICAL;
     	largeDisplayOpts = new Display( displayOpts );
     	largeDisplayOpts.orientation = Orientation.HORIZONTAL;
@@ -383,7 +385,6 @@ public class Controller {
 		exportImages( false );
      }
     
-
     /** Writes the image to a file name of "<export.path>/frets<entryDetails>,<fileCount>.png" */
 	public static String writeImage(BufferedImage image, String entryDetails) 
 		throws IOException {
@@ -430,12 +431,13 @@ public class Controller {
                 resources.getString( "aboutBox.background.location" )
           	);    		
     	}
-       aboutBox.show(SwingUtilities.getWindowAncestor(fretboardTF));
+       aboutBox.show(SwingUtilities.getWindowAncestor(fretboardChooser));
     }
 
     // Disables the controls (e.g. after deleteAll or if an invalid entry has been selected) 
     public void disableControls() {
-        fretboardTF.setEditable(false);
+        // fretboardChooser.setEditable(false);
+        // fretboardDescription.setText( "" );
         rankerTF.setEditable(false);
         
         fretsDetailsPanel.setIcon( null );
@@ -460,8 +462,11 @@ public class Controller {
     }
 
     /** Creates all the components in the main frame. */
-    protected void createFrameComponents() {
-        fretboardTF = new JTextField(15);
+    protected void createFrameComponents() {    	
+        fretboardChooser = new JComboBox<String>( Fretboard.getFretboardNames() );
+        fretboardChooser.setSelectedItem( fretboard.getMetaName());
+        fretboardDescription = new JLabel( fretboard.getMetaDescription() );
+        fretboardChooser.addActionListener( new FretboardChanger() );
         rankerTF = new JTextField(15);
                 
         fretsDetailsPanel = new JLabel();
@@ -506,20 +511,23 @@ public class Controller {
         tabbedPane.addTab(Application.getResourceAsString("tab.display"), null);
         tabbedPane.addChangeListener(new TabbedPaneChangeHandler(tabbedPane));
 
-        JPanel fixedPanel = new JPanel();
-        JLabel fretboardLabel = new JLabel(resources.getString("label.fretboard"));
-        fixedPanel.add( fretboardLabel );
-		fretboardTF.setText( fretboard.getMetaDescription() );
-		fretboardTF.setEditable( false );
-        fixedPanel.add( fretboardTF );
-        JLabel rankerLabel = new JLabel(resources.getString("label.ranker"));
-        fixedPanel.add( rankerLabel );
+        JPanel fixedPanel = new JPanel( new BorderLayout() );
+        JPanel fretPanel = new JPanel( new BorderLayout());
+        fretPanel.add( "West", new JLabel(resources.getString("label.fretboard")));
+        fretPanel.add( "Center", fretboardChooser );
+        fretboardDescription.setText( fretboard.getMetaDescription() );
+        fretPanel.add( "East", fretboardDescription );
+        fixedPanel.add( "West", fretPanel );
+        
+        JPanel rankerPanel = new JPanel( new BorderLayout());
+        rankerPanel.add( "West", new JLabel(resources.getString("label.ranker")));
         String defaultRanker = resources.getString("default.ranker");
         // System.out.println ( "Formula ranker=\"" + defaultRanker + "\".");
 		ranker = ChordRank.instance.getInstance( defaultRanker );
 		rankerTF.setText( ranker.getMetaName() );
 		rankerTF.setEditable( false );
-        fixedPanel.add( rankerTF );
+        rankerPanel.add( "Center", rankerTF );
+        fixedPanel.add( "East", rankerPanel );
 
         // Create table in a view port.
         entryTableModel = new EntryTableModel();
@@ -815,14 +823,19 @@ public class Controller {
 	    // Calculate other information fields.
         List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
 	    int permutations = Fretboard.getPermutationCount( variations );
-	    int variationi = random.nextInt( permutations );
-	    LocationList locations = Fretboard.getPermutation(variations, variationi);
-	    // scoreSum = ranker.getSum( locations );
-
-	    entry.setMember( "Locations", locations.toString() );      
-        entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
-        entry.setMember( "Score", ranker.getScoreString(locations) );    
-        // entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
+	    if ( permutations > 0) { // Can happen when bass notes have no locations on soprano ukelele
+	    	int variationi = random.nextInt( permutations );
+	    	LocationList locations = Fretboard.getPermutation(variations, variationi);
+	    	// scoreSum = ranker.getSum( locations );
+	    	entry.setMember( "Locations", locations.toString() );      
+	    	entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
+	    	entry.setMember( "Score", ranker.getScoreString(locations) );    
+	    	// 	entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
+	    } else {
+	    	entry.setMember( "Locations", null );      
+	    	entry.setMember( "Variation", null );
+	    	entry.setMember( "Score", null );    
+	    }
     }
 
     /** Updates the main display from an updated entry. Works with null or blank entries. */
@@ -1083,4 +1096,30 @@ public class Controller {
 		updateVisuals( entry );
 		validateMaxScore();
     }
+    
+    public class FretboardChanger implements ActionListener {
+        public void actionPerformed(ActionEvent e) {
+            @SuppressWarnings("rawtypes")
+			JComboBox cb = (JComboBox) e.getSource();
+            String fretboardName = (String) cb.getSelectedItem();
+            
+            // System.out.println( "FretboardChanger.actionPerformed selected=" + fretboardName ); 
+    		fretboard = Fretboard.getInstanceFromName( fretboardName );
+            fretboardDescription.setText( fretboard.getMetaDescription() );
+
+    		// Need to update all entries from root and formula 
+        	int modelCount = entryTableModel.getRowCount();
+       		for ( int i = 0; i < modelCount; i++ ) {
+       	   		ExtendedDisplayEntry entry = entryTableModel.get( i );         	   		
+         	    updateEntryFromFormula( entry );
+         	    entryTableModel.set( i, entry);
+        	}
+       		if ( modelCount > 0 ) {
+       			ExtendedDisplayEntry entry = getFirstSelected(entryTable, entryTableModel);
+       		    if ( null != entry )
+       		    	updateVisuals( entry );
+        		validateMaxScore();
+        	}
+      }
+    }    
 }

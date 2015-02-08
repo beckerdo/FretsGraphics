@@ -30,9 +30,8 @@ import frets.main.NoteList;
 import frets.swing.model.ExtendedDisplayEntry;
 
 /**
- * This class is able to render to graphical representations. 
+ * Renders graphical respresentation of fretboard, strings, frets, locations. 
  */
-// TODO - Inverse mapping. Click to location.
 // TODO - Offset note so it appears slightly above the fret, not on it.
 // TODO - String thicknesses, but it might need anti aliasing. 
 // TODO - Wound strings?
@@ -166,7 +165,7 @@ public class RasterRenderer {
 	    }
 
 	    // Draw dots on fretboard.
-	    LocationList dots = new LocationList( "2-3,2-5,2-7,2-9,1-12,3-12,2-15"); 
+	    LocationList dots = new LocationList( "2-3,2-5,2-7,2-9,1-12,3-12,2-15,2-17,2-19"); 
 	    paintDots( fretboard, dots, g2d, size, displayOpts, 0x40, fretMinStringMin, fretMaxStringMax ); // Dots are ghosted to pick up fretboard color. 
     
 	    Note root = null;
