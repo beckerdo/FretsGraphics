@@ -816,26 +816,37 @@ public class Controller {
     	String root = (String) entry.getMember( "Root" );
     	String formula = (String) entry.getMember( "Formula" );
 	    
-    	NoteList notes = new NoteList();
-	    notes.setRelative( new Note( root ), formula );
-	    entry.setMember( "Notes", notes.toString() );
+    	if ((null != root) && (root.length() > 0)) {
+        	if ((null != formula) && (formula.length() > 0)) {
+	    		NoteList notes = new NoteList();
+	    		notes.setRelative( new Note( root ), formula );
+	    		entry.setMember( "Notes", notes.toString() );
+	    		
+	    	    // Calculate other information fields.
+	            List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
+	    	    int permutations = Fretboard.getPermutationCount( variations );
+	    	    if ( permutations > 0) { // Can happen when bass notes have no locations on soprano ukelele
+	    	    	int variationi = random.nextInt( permutations );
+	    	    	LocationList locations = Fretboard.getPermutation(variations, variationi);
+	    	    	// scoreSum = ranker.getSum( locations );
+	    	    	entry.setMember( "Locations", locations.toString() );      
+	    	    	entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
+	    	    	entry.setMember( "Score", ranker.getScoreString(locations) );    
+	    	    	// 	entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
+	    	    	entry.setMember( "Locations", locations.toString() );      
+	    	    } else {
+	    	    	entry.setMember( "Locations", null );      
+	    	    	entry.setMember( "Variation", null );
+	    	    	entry.setMember( "Score", null );    
+	    	    }
+	    	    return;
+    	    }
 
-	    // Calculate other information fields.
-        List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-	    int permutations = Fretboard.getPermutationCount( variations );
-	    if ( permutations > 0) { // Can happen when bass notes have no locations on soprano ukelele
-	    	int variationi = random.nextInt( permutations );
-	    	LocationList locations = Fretboard.getPermutation(variations, variationi);
-	    	// scoreSum = ranker.getSum( locations );
-	    	entry.setMember( "Locations", locations.toString() );      
-	    	entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
-	    	entry.setMember( "Score", ranker.getScoreString(locations) );    
-	    	// 	entry.setMember( "Comment", getCommentFromFormula( entry )); // make comment with nearest formula, variation
-	    } else {
-	    	entry.setMember( "Locations", null );      
-	    	entry.setMember( "Variation", null );
-	    	entry.setMember( "Score", null );    
-	    }
+    	} 
+    	entry.setMember( "Locations", null );      
+    	entry.setMember( "Variation", null );
+    	entry.setMember( "Score", null );    
+   		entry.setMember( "Notes", null );    		
     }
 
     /** Updates the main display from an updated entry. Works with null or blank entries. */
@@ -1097,13 +1108,14 @@ public class Controller {
 		validateMaxScore();
     }
     
+    /** Handles the notification that a new fretboard has been selected. */
     public class FretboardChanger implements ActionListener {
         public void actionPerformed(ActionEvent e) {
             @SuppressWarnings("rawtypes")
 			JComboBox cb = (JComboBox) e.getSource();
             String fretboardName = (String) cb.getSelectedItem();
             
-            // System.out.println( "FretboardChanger.actionPerformed selected=" + fretboardName ); 
+            System.out.println( "FretboardChanger.actionPerformed selected=" + fretboardName ); 
     		fretboard = Fretboard.getInstanceFromName( fretboardName );
             fretboardDescription.setText( fretboard.getMetaDescription() );
 
