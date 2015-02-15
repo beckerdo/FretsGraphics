@@ -83,9 +83,9 @@ public class RasterRenderer {
 
 	    // Calc corners of fret diagram
 	    Point fretMinStringMin = getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
-	    // System.out.println( "Location string=" + displayOpts.displayAreaMin.getString() + ",fret=" + displayOpts.displayAreaMin.getFret() + ", point=" + fretMinStringMin );
+	    // System.out.println( "Location min string=" + displayOpts.displayAreaMin.getString() + ",fret=" + displayOpts.displayAreaMin.getFret() + ", point=" + fretMinStringMin );
 	    Point fretMaxStringMax = getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
-	    // System.out.println( "Location string=" + displayOpts.displayAreaMax.getString() + ",fret=" + displayOpts.displayAreaMax.getFret() + ", point=" + fretMaxStringMax );
+	    // System.out.println( "Location max string=" + displayOpts.displayAreaMax.getString() + ",fret=" + displayOpts.displayAreaMax.getFret() + ", point=" + fretMaxStringMax );
 
 	    // Draw fretboard background
 	    Color [] colors = new Color[ 3 ];
@@ -133,40 +133,53 @@ public class RasterRenderer {
 	    // Color brighterString = displayOpts.stringColor.brighter().brighter();
 	    // System.out.println( "Brighter=" + brighterString );
 	    for( int stringi = displayOpts.displayAreaMin.getString(); stringi <= displayOpts.displayAreaMax.getString();  stringi++ ) {
-	    	int stringThickness = displayOpts.stringThickness;
-	    	// Mod string thickness for low octave strings.
-	    	Note openNote = fretboard.getString( stringi ).getOpenNote();
-	    	int openNoteOctave = openNote.getOctave();
-	    	switch ( openNoteOctave ) {
-	    		case 0: stringThickness *= 3; break; 
-	    		case 1: stringThickness *= 2; break; 
-	    		case 2: stringThickness *= 1.5; break; 
-	    	}
-	    	// System.out.println( "String " + stringi + ", octave=" + openNoteOctave + ", thickness=" + stringThickness );
-		    g2d.setColor( displayOpts.stringColor );
-	    	
-		    Point stringBase = getLocationPoint( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) ); 
-    		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
-    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
-    				// if ((stringThickness > 2) && (t == 1)) { 
-    				//    g2d.setColor( brighterString );
-    				// }
-    				g2d.drawLine( stringBase.x+t, fretMinStringMin.y, stringBase.x+t, fretMaxStringMax.y);
-    			}
-    		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
-    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
-    				// if ((stringThickness > 2) && (t == 1)) { 
-    				//    g2d.setColor( brighterString );
-    				// }
-    				
-    				g2d.drawLine( fretMinStringMin.x, stringBase.y+t, fretMaxStringMax.x, stringBase.y+t);
-    			}
-    		}
+	    	if (( stringi >= 0 ) && ( stringi < fretboard.getStringCount())) {
+		    	Note openNote = fretboard.getString( stringi ).getOpenNote();
+		    	int openNoteOctave = openNote.getOctave();
+		    	// Mod string thickness for low octave strings.
+		    	int stringThickness = displayOpts.stringThickness;
+		    	switch ( openNoteOctave ) {
+		    		case 0: stringThickness *= 3; break; 
+		    		case 1: stringThickness *= 2; break; 
+		    		case 2: stringThickness *= 1.5; break; 
+		    	}
+		    	// System.out.println( "String " + stringi + ", octave=" + openNoteOctave + ", thickness=" + stringThickness );
+			    g2d.setColor( displayOpts.stringColor );
+		    	
+			    Point stringBase = getLocationPoint( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) ); 
+	    		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
+	    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
+	    				// if ((stringThickness > 2) && (t == 1)) { 
+	    				//    g2d.setColor( brighterString );
+	    				// }
+	    				g2d.drawLine( stringBase.x+t, fretMinStringMin.y, stringBase.x+t, fretMaxStringMax.y);
+	    			}
+	    		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
+	    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
+	    				// if ((stringThickness > 2) && (t == 1)) { 
+	    				//    g2d.setColor( brighterString );
+	    				// }
+	    				
+	    				g2d.drawLine( fretMinStringMin.x, stringBase.y+t, fretMaxStringMax.x, stringBase.y+t);
+	    			}
+	    		}
+	    	} // stringi < getStringCount
 	    }
 
 	    // Draw dots on fretboard.
-	    LocationList dots = new LocationList( "2-3,2-5,2-7,2-9,1-12,3-12,2-15,2-17,2-19"); 
-	    paintDots( fretboard, dots, g2d, size, displayOpts, 0x40, fretMinStringMin, fretMaxStringMax ); // Dots are ghosted to pick up fretboard color. 
+	    int middleString = fretboard.getStringCount() / 2 - 1;
+	    // System.out.println( "RasterRenderer middle string=" + middleString );
+	    if ( middleString > 0) {
+	    	String locString = "ml3,ml5,ml7,ml9,X12,Y12,ml15,ml17,ml19";
+	    	String midLoc = Integer.toString( middleString ) + "-";
+	    	locString = locString.replaceAll( "ml", midLoc );
+	    	String loLoc = Integer.toString( middleString - 1 ) + "-";
+	    	locString = locString.replaceAll( "X", loLoc );
+	    	String hiLoc = Integer.toString( middleString + 1 ) + "-";
+	    	locString = locString.replaceAll( "Y", hiLoc );
+	    	LocationList dots = new LocationList( locString ); 
+	    	paintDots( fretboard, dots, g2d, size, displayOpts, 0x40, fretMinStringMin, fretMaxStringMax ); // Dots are ghosted to pick up fretboard color.
+	    }
     
 	    Note root = null;
 	    String rootName = (String) entry.getMember( "Root" );

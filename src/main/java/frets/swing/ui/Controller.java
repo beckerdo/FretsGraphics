@@ -139,7 +139,7 @@ public class Controller {
     	System.out.println( "Controller cons");
 
         // Some post init
-        String defaultFretboard = resources.getString("default.fretboard");
+        String defaultFretboard = resources.getString( "default.fretboard" );
 		fretboard = Fretboard.getInstanceFromName( defaultFretboard );
     	displayOpts.orientation = Orientation.VERTICAL;
     	largeDisplayOpts = new Display( displayOpts );
@@ -1118,6 +1118,8 @@ public class Controller {
             System.out.println( "FretboardChanger.actionPerformed selected=" + fretboardName ); 
     		fretboard = Fretboard.getInstanceFromName( fretboardName );
             fretboardDescription.setText( fretboard.getMetaDescription() );
+            // Update large display based on String count.
+        	largeDisplayOpts.setDisplayAreaStyleMaxFretboard(fretboard);
 
     		// Need to update all entries from root and formula 
         	int modelCount = entryTableModel.getRowCount();
