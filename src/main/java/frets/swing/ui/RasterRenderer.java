@@ -170,7 +170,7 @@ public class RasterRenderer {
 	    int middleString = fretboard.getStringCount() / 2 - 1;
 	    // System.out.println( "RasterRenderer middle string=" + middleString );
 	    if ( middleString > 0) {
-	    	String locString = "ml3,ml5,ml7,ml9,X12,Y12,ml15,ml17,ml19";
+	    	String locString = "ml3,ml5,ml7,ml9,X12,Y12,ml15,ml17,ml19,ml21";
 	    	String midLoc = Integer.toString( middleString ) + "-";
 	    	locString = locString.replaceAll( "ml", midLoc );
 	    	String loLoc = Integer.toString( middleString - 1 ) + "-";
