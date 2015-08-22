@@ -189,8 +189,8 @@ public class Controller {
     	int retryCount = 0;
     	LocationList locations = null;
     	List<LocationList> variations = null;
-    	int permutations = 0;
-    	int variationi = -1;
+    	long permutations = 0;
+    	long variationi = -1;
         
     	// Get an entry that is below the max and limited by retry count.
        	while (( scoreSum > scoreMax ) && ( retryCount++ < RETRY_MAX)) {
@@ -208,7 +208,7 @@ public class Controller {
         	// Calculate other information fields.
             variations = fretboard.getEnharmonicVariations( notes );
             permutations = Fretboard.getPermutationCount( variations );
-            variationi = random.nextInt( permutations );
+            variationi = random.nextLong() % permutations;
             locations = Fretboard.getPermutation(variations, variationi);
             scoreSum = ranker.getSum( locations );
             // Essentially this makes the loop end after one try.
@@ -296,12 +296,12 @@ public class Controller {
     	List<ExtendedDisplayEntry> entryVariations = new ArrayList<ExtendedDisplayEntry>();
     	NoteList notes = new NoteList( (String) entry.getMember( "Notes" ) );
     	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-        int permutations = Fretboard.getPermutationCount( variations );
+        long permutations = Fretboard.getPermutationCount( variations );
         String variationStr = (String) entry.getMember( "Variation" );
 		int [] values = Fretboard.getPermutationValues(variationStr);
     	int variation = values[ 0 ];
         
-        int maxPerm = Math.min( permutations, count );
+        long maxPerm = Math.min( permutations, count );
         for ( int variationi = 0; variationi < maxPerm; variationi++ ) {
         	if ( variationi != variation ) {
         		ExtendedDisplayEntry newEntry = new ExtendedDisplayEntry();
@@ -824,9 +824,9 @@ public class Controller {
 	    		
 	    	    // Calculate other information fields.
 	            List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-	    	    int permutations = Fretboard.getPermutationCount( variations );
+	    	    long permutations = Fretboard.getPermutationCount( variations );
 	    	    if ( permutations > 0) { // Can happen when bass notes have no locations on soprano ukelele
-	    	    	int variationi = random.nextInt( permutations );
+	    	    	long variationi = random.nextLong() % permutations;
 	    	    	LocationList locations = Fretboard.getPermutation(variations, variationi);
 	    	    	// scoreSum = ranker.getSum( locations );
 	    	    	entry.setMember( "Locations", locations.toString() );      
@@ -1078,15 +1078,22 @@ public class Controller {
 	    	entry.setMember( "Formula", locations.getFormula(fretboard, root) );
 	  
 	        // Find variationi
+	    	long startTime = System.currentTimeMillis();
 	        List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-		    int permutations = Fretboard.getPermutationCount( variations );
+		    long permutations = Fretboard.getPermutationCount( variations );
+	        System.out.println( "Controller.updateEntryFromLocation variations=" + variations.size() + ", permutations=" + permutations);
 		    for( int variationi = 0; variationi < permutations; variationi++ ) {
+		       // With 16 notes, this 
 	   	       LocationList thisVariation = Fretboard.getPermutation(variations, variationi);
-		       if ( locations.equals( thisVariation )) {
-		           entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
-		    	   break;
-		       }
+	   	       if (variationi < 4)
+	   	    	   System.out.println( "   Controller.updateEntryFromLocation locationList=" + thisVariation.toString());
+//		       if ( locations.equals( thisVariation )) {
+//		           entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
+//		    	   break;
+//		       }
 		    }
+	        System.out.println( "   Controller.updateEntryFromLocation time=" + (System.currentTimeMillis() - startTime) + "mS");
+		    
 	        entry.setMember( "Score", ranker.getScoreString(locations) );
 	        // entry.setMember( "Comments", getCommentFromFormula( entry )); // make comment with nearest formula, variation
 	        
