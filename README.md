@@ -31,7 +31,6 @@ TODOs
    Some cells can be blank or contain text or contain colors or images.
    Page data can be saved and read from property file.
 7. More ToDos in frets.swing.ui package.
-8. Performance problem when showing entire Cmaj Shape 1E. (Permutations? Score?)
 
 
 Contributors	

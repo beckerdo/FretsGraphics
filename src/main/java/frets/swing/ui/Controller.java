@@ -298,8 +298,8 @@ public class Controller {
     	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
         long permutations = Fretboard.getPermutationCount( variations );
         String variationStr = (String) entry.getMember( "Variation" );
-		int [] values = Fretboard.getPermutationValues(variationStr);
-    	int variation = values[ 0 ];
+		long [] values = Fretboard.getPermutationValues(variationStr);
+    	long variation = values[ 0 ];
         
         long maxPerm = Math.min( permutations, count );
         for ( int variationi = 0; variationi < maxPerm; variationi++ ) {
@@ -934,7 +934,7 @@ public class Controller {
 		// Example variation string "6/8 (012/124)"
 	    String variation = 	(String) entry.getMember("Variation");
 	    if ( null != variation ) {
-		    int [] values = Fretboard.getPermutationValues(variation);
+		    long [] values = Fretboard.getPermutationValues(variation);
 		    if ( null != values ) {
 		    	sb.append( values[ 0 ] + "-" + values[ 1 ] );		    	
 		    }
@@ -961,9 +961,9 @@ public class Controller {
 	        			NoteList notes = NoteList.parse( notesString );
 		        		String variationStr = (String) entry.getMember( VARIATIONS_COL ); // variation
 		        		if ( null != variationStr ) {
-		        			int [] values = Fretboard.getPermutationValues(variationStr);
-		        			int updateVariation = values[ 0 ];
-		        			int maxVar = values[ 1 ];
+		        			long [] values = Fretboard.getPermutationValues(variationStr);
+		        			long updateVariation = values[ 0 ];
+		        			long maxVar = values[ 1 ];
 		        			if ( evt.getClickCount() == 1 ) {
 			        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
 			        				// Decrement
@@ -980,7 +980,7 @@ public class Controller {
 		        				// Hence you will see the single click logic execute before dbl click is called.
 			        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
 			        				// random
-                                    updateVariation = random.nextInt( maxVar );			        				
+                                    updateVariation = random.nextLong() % maxVar;			        				
 			        			} else {
 				        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
 				        	    	int bestScore = Integer.MAX_VALUE;
@@ -1064,8 +1064,10 @@ public class Controller {
         LocationList locations = LocationList.parseString( locationString );
         if ( locations.contains( location )) 
         	locations.remove( location );
-        else
+        else {
         	locations.add( location );
+        	locations.sort();
+        }
         entry.setMember( "Locations", locations.toString() );
 
         if ( locations.size() > 0 ) {
@@ -1078,21 +1080,16 @@ public class Controller {
 	    	entry.setMember( "Formula", locations.getFormula(fretboard, root) );
 	  
 	        // Find variationi
-	    	long startTime = System.currentTimeMillis();
+	    	// long startTime = System.currentTimeMillis();
 	        List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
-		    long permutations = Fretboard.getPermutationCount( variations );
-	        System.out.println( "Controller.updateEntryFromLocation variations=" + variations.size() + ", permutations=" + permutations);
-		    for( int variationi = 0; variationi < permutations; variationi++ ) {
-		       // With 16 notes, this 
-	   	       LocationList thisVariation = Fretboard.getPermutation(variations, variationi);
-	   	       if (variationi < 4)
-	   	    	   System.out.println( "   Controller.updateEntryFromLocation locationList=" + thisVariation.toString());
-//		       if ( locations.equals( thisVariation )) {
-//		           entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
-//		    	   break;
-//		       }
+		    // long permutations = Fretboard.getPermutationCount( variations );
+	        // System.out.println( "Controller.updateEntryFromLocation variations=" + variations.size() + ", permutations=" + permutations);
+	        long variationi = Fretboard.getPermutationNumber( variations, locations );
+        	// System.out.println( "   Controller.updateEntryFromLocation variationi=" + variationi);
+	        if ( -1 != variationi ) {
+		        entry.setMember( "Variation", Fretboard.getPermutationString(variations, variationi) );
 		    }
-	        System.out.println( "   Controller.updateEntryFromLocation time=" + (System.currentTimeMillis() - startTime) + "mS");
+	        // System.out.println( "   Controller.updateEntryFromLocation time=" + (System.currentTimeMillis() - startTime) + "mS");
 		    
 	        entry.setMember( "Score", ranker.getScoreString(locations) );
 	        // entry.setMember( "Comments", getCommentFromFormula( entry )); // make comment with nearest formula, variation
