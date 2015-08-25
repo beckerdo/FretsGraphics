@@ -152,8 +152,7 @@ public class Controller {
         createUI(host);
         createMenu(host);
         host.pack();
-        addEntry( NULL_ENTRY ); // add a random entry        
-
+        addEntry( randomEntry( 10 )); // add a random entry        
     }
 
     /** Adds a blank entry */
@@ -175,6 +174,8 @@ public class Controller {
     	int selectedRow = entryTable.getSelectedRow();
     	if ( NONE_SELECTED == selectedRow )
            entryTable.setRowSelectionInterval( 0, 0 );
+    	else
+            entryTable.setRowSelectionInterval( selectedRow, selectedRow );
     }
 
     /** 
@@ -208,7 +209,7 @@ public class Controller {
         	// Calculate other information fields.
             variations = fretboard.getEnharmonicVariations( notes );
             permutations = Fretboard.getPermutationCount( variations );
-            variationi = random.nextLong() % permutations;
+            variationi = nextLong( permutations );
             locations = Fretboard.getPermutation(variations, variationi);
             scoreSum = ranker.getSum( locations );
             // Essentially this makes the loop end after one try.
@@ -826,7 +827,7 @@ public class Controller {
 	            List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
 	    	    long permutations = Fretboard.getPermutationCount( variations );
 	    	    if ( permutations > 0) { // Can happen when bass notes have no locations on soprano ukelele
-	    	    	long variationi = random.nextLong() % permutations;
+	    	    	long variationi = nextLong( permutations );
 	    	    	LocationList locations = Fretboard.getPermutation(variations, variationi);
 	    	    	// scoreSum = ranker.getSum( locations );
 	    	    	entry.setMember( "Locations", locations.toString() );      
@@ -980,7 +981,7 @@ public class Controller {
 		        				// Hence you will see the single click logic execute before dbl click is called.
 			        			if ( evt.getButton() == MouseEvent.BUTTON1 ) {
 			        				// random
-                                    updateVariation = random.nextLong() % maxVar;			        				
+                                    updateVariation = nextLong( maxVar );			        				
 			        			} else {
 				        	    	List<LocationList> variations = fretboard.getEnharmonicVariations( notes );
 				        	    	int bestScore = Integer.MAX_VALUE;
@@ -1139,5 +1140,18 @@ public class Controller {
         		validateMaxScore();
         	}
       }
-    }    
+    }
+    
+    /** Returns a positive long between 0 and bounds. */ 
+    public static long nextLong( long bounds ) {
+    	if (bounds <= 0)
+            throw new IllegalArgumentException("bounds must be positive");
+    	long val;
+    	do {
+    	   val = random.nextLong();
+    	   if ( val > 0 )
+    		   val %= bounds;    		
+    	} while ( val < 0 );
+    	return val;
+    }
 }

@@ -10,11 +10,12 @@ Demonstration
 
 1. Build using Maven or importing the Maven project into your development environment.
 2. Run the application FretsApplication as a Java application.
-3. Click menu item "Entry > Add random" to add a random chord to the list. 
-4. Select the chord and notice the details below. For example formula and playability score.
-5. Select a chord and click menu item "Entry > Variations (ten)" to generate similar chords.
-6. Notice that the similar chords might not be as easy to play as the selection.
-7. Also look at the large display tab to see all locations that fit the chord formula.
+3. Click menu item "Entry > Add random" to add a random chord to the list.
+4. Alternatively, click on the large fretboard to add and remove notes. 
+5. Select the chord and notice the details below, for example formula and playability score.
+6. Select a chord and click menu item "Entry > Variations (ten)" to generate similar chords.
+7. Notice that the similar chords might not be as easy to play as the selection.
+8. Also look at the large display tab to see all locations that fit the chord formula.
 
 
 TODOs
