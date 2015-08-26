@@ -21,17 +21,19 @@ Demonstration
 TODOs
 ==========
 1. Complete Display Option editor panel.
-2. Break up of properties into ascii, graphic, user options.
-4. Slider or button control of enharmonic and octave transparency.
-5. Look up of note/formula, find nearest name, place in comments.
-6. Chart making page. 
+2. Break up of properties into ascii, graphic, user options. Use grouping names in keys.
+3. Add tab display panel. Allow fretboard touches to add/del notes or to add to tab display.
+4. On tab display, show note quality (R-3-5) and interval (0+2+2). 
+5. Slider or button control of enharmonic and octave transparency.
+6. Look up of note/formula, find nearest name, place in comments.
+7. Chart making page. 
    Allow spreadsheet-like grid to display multiple fretboard displays
    Each grid entry can display complete model (fretboard, root, formula, notes/locations, variation, score)
    Each grid entry can display incremental changes base on info from another cell. For example:
    Page default data at cell 0,0. Cell 1,1 contains G root, Cell 1,2 modifies $1,$1 root with +2 steps.
    Some cells can be blank or contain text or contain colors or images.
    Page data can be saved and read from property file.
-7. More ToDos in frets.swing.ui package.
+8. More ToDos in frets.swing.ui package.
 
 
 Contributors	
