@@ -81,6 +81,8 @@ import frets.swing.model.ExtendedDisplayEntryScoreComparator;
 // TODO - Redo score to be a weighted composite. Also add string span as a metric.
 // TODO - Consider score for enharmonics. For instance, although 1 entry, this is the best/worst of 6 enharmonics.
 // TODO - Proper column sorting. Currently G2, G#2, G3 and variations sort funny.
+// TODO - Tabbed pane bug. Touching DEtails > Comments > Display > Comments > Details moves Entry panel to Comments.
+// TODO - EntryTable mouse clicks (e.g. variation up/down) work on different columns when columns rearranged.
 /**
  * The Controller for the Frets application. Controller gets its name
  * from the model view controller (MVC) pattern. Controller is responsible
