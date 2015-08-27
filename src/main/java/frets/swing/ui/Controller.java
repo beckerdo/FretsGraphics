@@ -124,6 +124,7 @@ public class Controller {
     // Image display fields
     private JLabel fretsDetailsPanel;
     private JLabel fretsLargePanel;    
+    private JLabel tabDisplay;    
     
     private BarChartVisualizer scoreBarChart;
     private int maxSumScore = Integer.MIN_VALUE;
@@ -447,6 +448,9 @@ public class Controller {
         fretsDetailsPanel.setToolTipText( null );
         fretsLargePanel.setIcon( null );
         fretsLargePanel.setToolTipText( null );
+   
+        tabDisplay.setIcon( null );
+        tabDisplay.setToolTipText( "Tabs" );
         
   	    scoreBarChart.setMaxValue( 0 );
         scoreBarChart.setColumns( BARCHART_EMPTY_SCORE );
@@ -503,6 +507,13 @@ public class Controller {
         fretsLargePanel.setToolTipText( null );
         fretsLargePanel.addMouseListener(new PopupMenuListener());
         fretsLargePanel.addMouseListener(new LocationClickListener());
+
+        tabDisplay = new JLabel();
+        tabDisplay.setBorder( new LineBorder(Color.DARK_GRAY, 1) );
+        tabDisplay.setPreferredSize(new Dimension(600, 100));
+        tabDisplay.setBackground( opaquebg );
+        tabDisplay.setOpaque(true);
+
     }
     
     /** Creates all the UI components in the given frame. */
@@ -550,7 +561,11 @@ public class Controller {
         
         JSplitPane splitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, topHalf, tabbedPane);
         splitPane.setResizeWeight( 1.0 );
-        frame.getContentPane().add( splitPane );
+        
+        JSplitPane tabSplitPane = new JSplitPane(JSplitPane.VERTICAL_SPLIT, splitPane, tabDisplay);
+        tabSplitPane.setResizeWeight( 1.0 );
+
+        frame.getContentPane().add( tabSplitPane );
     }
     
     /** Creates and populates the main menu bar for the app. */
@@ -759,6 +774,11 @@ public class Controller {
         return image;
     }
 
+    public BufferedImage getTabImage(ExtendedDisplayEntry entry) {
+    	BufferedImage image = TabRenderer.renderImage( tabDisplay.getSize(), largeDisplayOpts, fretboard, entry );        	
+        return image;
+    }
+
     /** Listens for changes in selection. Updates visuals. */
     public class EntryTableSelectionListener implements ListSelectionListener {
         public void valueChanged(ListSelectionEvent event) {
@@ -867,6 +887,8 @@ public class Controller {
         	fretsLargePanel.setToolTipText( entryText );
         else
         	fretsLargePanel.setToolTipText( null );
+
+    	tabDisplay.setIcon( new ImageIcon( getTabImage( entry ) ));
         
         String scoreString = (String) entry.getMember( "Score" );
         // "Scores sum=22, fret bounds[0,15]=0, fret span=7, skip strings=5, same string=10"
