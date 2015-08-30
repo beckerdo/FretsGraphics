@@ -3,38 +3,34 @@ package frets.swing.ui;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
-import java.awt.GradientPaint;
 import java.awt.Graphics2D;
 import java.awt.Insets;
 import java.awt.Point;
 import java.awt.RenderingHints;
-import java.awt.Shape;
 import java.awt.font.TextLayout;
-import java.awt.geom.AffineTransform;
-import java.awt.geom.Path2D;
 import java.awt.geom.Rectangle2D;
 import java.awt.image.BufferedImage;
 import java.util.EnumSet;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
 
 import frets.main.Display;
-import frets.main.Display.Hand;
 import frets.main.Display.NotPlayedLocation;
 import frets.main.Fretboard;
 import frets.main.Location;
 import frets.main.LocationList;
 import frets.main.Note;
-import frets.main.NoteList;
 import frets.swing.model.ExtendedDisplayEntry;
 
 /**
- * Renders graphical respresentation of tabs on a fretboard
+ * Renders graphical representation of tabs on a string
  */
 public class TabRenderer { 
 	@SuppressWarnings("unused")
 	private static final long serialVersionUID = 1L;
+	
+	/** Less than this will diminish width, show first and last. */
+	public static final int MAX_LOCATIONS = 16; 
+	public static final int FIRST_LOCATIONS = 11;
+	public static final int LAST_LOCATIONS = 4;
 
 	protected BufferedImage bufferedImage;
 
@@ -56,7 +52,6 @@ public class TabRenderer {
 		// displayOpts.orientation = Orientation.HORIZONTAL;
 		displayOpts.insets = new Insets( 15, 15, 15, 15  );  // top, left, bottom, right
 		// displayOpts.hand = Hand.LEFT;
-		displayOpts.notPlayed = EnumSet.of( NotPlayedLocation.HEAD );
 		
 		// Init graphics
 		TabRenderer rr = new TabRenderer( size );
@@ -67,59 +62,224 @@ public class TabRenderer {
 	    g2d.setColor( displayOpts.backgroundColor ); // can have alpha
 	    g2d.fillRect(0, 0, size.width, size.height);
 
-	    // Calc corners of fret diagram
-	    Point fretMinStringMin = RasterRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
-	    System.out.println( "Location min string=" + displayOpts.displayAreaMin.getString() + ",fret=" + displayOpts.displayAreaMin.getFret() + ", point=" + fretMinStringMin );
-	    Point fretMaxStringMax = RasterRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
-	    System.out.println( "Location max string=" + displayOpts.displayAreaMax.getString() + ",fret=" + displayOpts.displayAreaMax.getFret() + ", point=" + fretMaxStringMax );
-	    
-	    // Draw strings
-	    // Color brighterString = displayOpts.stringColor.brighter().brighter();
-	    // System.out.println( "Brighter=" + brighterString );
-	    for( int stringi = displayOpts.displayAreaMin.getString(); stringi <= displayOpts.displayAreaMax.getString();  stringi++ ) {
-	    	if (( stringi >= 0 ) && ( stringi < fretboard.getStringCount())) {
-		    	Note openNote = fretboard.getString( stringi ).getOpenNote();
-		    	int openNoteOctave = openNote.getOctave();
-		    	// Mod string thickness for low octave strings.
-		    	int stringThickness = displayOpts.stringThickness;
-		    	// System.out.println( "String " + stringi + ", octave=" + openNoteOctave + ", thickness=" + stringThickness );
-			    g2d.setColor( displayOpts.stringColor );
-		    	
-			    Point stringBase = RasterRenderer.getLocationPoint( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) ); 
-	    		if (Display.Orientation.VERTICAL == displayOpts.orientation ) {
-	    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
-	    				// if ((stringThickness > 2) && (t == 1)) { 
-	    				//    g2d.setColor( brighterString );
-	    				// }
-	    				g2d.drawLine( stringBase.x+t, fretMinStringMin.y, stringBase.x+t, fretMaxStringMax.y);
-	    			}
-	    		} else if (Display.Orientation.HORIZONTAL == displayOpts.orientation ) {
-	    			for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
-	    				// if ((stringThickness > 2) && (t == 1)) { 
-	    				//    g2d.setColor( brighterString );
-	    				// }
-	    				
-	    				g2d.drawLine( fretMinStringMin.x, stringBase.y+t, fretMaxStringMax.x, stringBase.y+t);
-	    			}
-	    		}
-	    	} // stringi < getStringCount
-	    }
-    
-	    Note root = null;
-	    String rootName = (String) entry.getMember( "Root" );
-	    if (( null != rootName ) && ( rootName.length() > 0)) {
-	    	root = new Note( rootName );
-	    	root.setOctave( 0 ); // set low so intervals are positive.
-	    }
-
 	    // Get location list from this particular variation.
 		LocationList locations = LocationList.parseString( (String) entry.getMember( "Locations" ));
+	    
+	    // Calc corners of fret diagram
+	    Point fretMinStringMin = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
+	    System.out.println( "Location min string=" + displayOpts.displayAreaMin.getString() + ",fret=" + displayOpts.displayAreaMin.getFret() + ", point=" + fretMinStringMin );
+	    Point fretMaxStringMax = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
+	    System.out.println( "Location max string=" + displayOpts.displayAreaMax.getString() + ",fret=" + displayOpts.displayAreaMax.getFret() + ", point=" + fretMaxStringMax );
+
+		if (null != locations && locations.size() > 0) {
+		    // System.out.println( "Location size=" + locations.size() );
+		    
+			double xCenter = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / 2.0;
+			double xNoteDelta = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / MAX_LOCATIONS;
+			double xHalfDelta = (locations.size() % 2) == 1 ? 0 : (xNoteDelta / 2.0); // 0 for odd, half delta for even
+		    // System.out.println( "Tab center=" + xCenter + ",noteDelta=" + xNoteDelta + ", halfDelta=" + xHalfDelta );
+
+		    // Calc corners including location of min and max notes.
+		    Point noteMinStringMin = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
+		    if ( locations.size() < MAX_LOCATIONS ) {
+		    	double xMin =  xCenter - ((locations.size() / 2) * xNoteDelta) + xHalfDelta; 
+		    	noteMinStringMin.setLocation(xMin, noteMinStringMin.getY());
+		    }
+		    // System.out.println( "Location noteMinStringMin=" + noteMinStringMin );
+		    Point noteMaxStringMax = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
+		    if ( locations.size() < MAX_LOCATIONS ) {
+		    	double xMax =  xCenter + ((locations.size() / 2) * xNoteDelta) - xHalfDelta; 
+		    	noteMaxStringMax.setLocation(xMax, noteMaxStringMax.getY());
+		    }
+		    // System.out.println( "Location noteMaxStringMax=" + noteMaxStringMax );
+		    
+		    // Draw strings
+		    // Color brighterString = displayOpts.stringColor.brighter().brighter();
+		    // System.out.println( "Brighter=" + brighterString );
+		    for( int stringi = displayOpts.displayAreaMin.getString(); stringi <= displayOpts.displayAreaMax.getString();  stringi++ ) {
+		    	if (( stringi >= 0 ) && ( stringi < fretboard.getStringCount())) {
+			    	// Mod string thickness for low octave strings.
+			    	int stringThickness = displayOpts.stringThickness;
+			    	// System.out.println( "String " + stringi + ", octave=" + openNoteOctave + ", thickness=" + stringThickness );
+				    g2d.setColor( displayOpts.stringColor );
+			    	
+					// public static Point getTabPoint( Dimension size, Display displayOpts, float string, int loci, int locations ) {
+				    Point stringBase = TabRenderer.getLocationPoint( size, displayOpts, new Location( stringi, displayOpts.displayAreaMin.getFret() ) ); 
+		    		for ( int t = -(stringThickness/2); t < (stringThickness/2); t++ ) {
+		    			g2d.drawLine( noteMinStringMin.x, stringBase.y+t, noteMaxStringMax.x, stringBase.y+t);
+		    		}
+		    	} // stringi < getStringCount
+		    }
+	    
+		    Note root = null;
+		    String rootName = (String) entry.getMember( "Root" );
+		    if (( null != rootName ) && ( rootName.length() > 0)) {
+		    	root = new Note( rootName );
+		    	root.setOctave( 0 ); // set low so intervals are positive.
+		    }
+		    
+		    // Draw normal locations with no ghosting.
+		    paintLocations( fretboard, locations, root, g2d, size, displayOpts,
+		       fretMinStringMin, fretMaxStringMax ); 
+		} // locations.size() > 0
 
 	    // Graphics context no longer needed so dispose it
 	    g2d.dispose();
 
 	    return rr.bufferedImage;
 	}    
-	
 
+	/** 
+	 * Converts a fretboard location into a point location.
+	 * The point location is influenced by display options as documented
+	 * in @see {@link RasterRenderer#getLocationPoint(Dimension, Display, float, float)}.
+	 */
+	public static Point getLocationPoint( Dimension size, Display displayOpts, Location location ) {
+		return getLocationPoint( size, displayOpts, location.getString(), location.getFret() );		
+	}
+	
+	/** 
+	 * Converts a tab location into a point location.
+	 * <p>
+	 * This version of the API can handle fractional and
+	 * outside the display area strings and notes.
+	 * For example, negative string and fret values can be used to
+	 * get locations for fret numbering, open string values, and
+	 * things that do not appear directly on the fretboard.
+	 * <p> 
+	 * The point location is influenced by display options:
+	 * <li>insets determines open space around fretboard.
+	 * <li>display area min and max determine view portal.
+	 * </ul>
+	 * <p>
+	 * Unlike FretRenderer:
+	 * <ul>
+	 * <li>where it says fret, location number is implied 
+	 * <li>this API does not pay attention to left/right, vertical/horizontal display options.
+	 * </ul>
+	 */
+	public static Point getLocationPoint( Dimension size, Display displayOpts, float string, float fret ) {
+		// Note: y axis is inverted. 0 at top, height at base.
+			// Note: y axis is inverted. 0 at top, height at base.
+			Point minStringMinFret = new Point( displayOpts.insets.left, size.height - displayOpts.insets.bottom ); // RIGHT
+			Point maxStringMaxFret = new Point( size.width - displayOpts.insets.right, displayOpts.insets.top ); // RIGHT
+
+			float stringDelta = (maxStringMaxFret.y - minStringMinFret.y)
+				/ (displayOpts.displayAreaMax.getString() - displayOpts.displayAreaMin.getString());
+			float y = minStringMinFret.y
+				+ (string - displayOpts.displayAreaMin.getString()) * stringDelta;
+
+			float fretDelta = (maxStringMaxFret.x - minStringMinFret.x)
+				/ (displayOpts.displayAreaMax.getFret() - displayOpts.displayAreaMin.getFret());
+			float x = minStringMinFret.x
+				+ (fret - displayOpts.displayAreaMin.getFret()) * fretDelta;
+
+			return new Point( Math.round( x ), Math.round( y ));
+	}
+	
+	/** 
+	 * Converts a tab location into a point location.
+	 * <p>
+	 * This version of the API can handle fractional and
+	 * outside the display area strings and notes.
+	 * For example, negative string and fret values can be used to
+	 * get locations for fret numbering, open string values, and
+	 * things that do not appear directly on the fretboard.
+	 * <p> 
+	 * The point location is influenced by display options:
+	 * <li>insets determines open space around fretboard.
+	 * <li>display area min and max determine view portal.
+	 * </ul>
+	 * <p>
+	 * Unlike FretRenderer:
+	 * <ul>
+	 * <li>where it says fret, location number is implied 
+	 * <li>this API does not pay attention to left/right, vertical/horizontal display options.
+	 * </ul>
+	 */
+	public static Point getTabPoint( Dimension size, Display displayOpts, float string, int loci, int locations ) {
+		// Note: y axis is inverted. 0 at top, height at base.
+		Point fretMinStringMin = new Point( displayOpts.insets.left, size.height - displayOpts.insets.bottom ); // RIGHT
+		Point fretMaxStringMax = new Point( size.width - displayOpts.insets.right, displayOpts.insets.top ); // RIGHT
+
+		float stringDelta = (fretMaxStringMax.y - fretMinStringMin.y)
+			/ (displayOpts.displayAreaMax.getString() - displayOpts.displayAreaMin.getString());
+		float y = fretMinStringMin.y
+				+ (string - displayOpts.displayAreaMin.getString()) * stringDelta;
+
+		double xCenter = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / 2.0f;
+		double xNoteDelta = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / MAX_LOCATIONS;
+		// System.out.println( "Tab center=" + xCenter + ",noteDelta=" + xNoteDelta + ", halfDelta=" + xHalfDelta );
+
+		int tabLocations = Math.min( locations, MAX_LOCATIONS );
+		double tabWidth = tabLocations * xNoteDelta;
+		double x = xCenter - (tabWidth/2.0) + (xNoteDelta*loci);
+		
+		return new Point( (int) Math.round( x ), Math.round( y ) );
+	}	
+
+    /** 
+     * Draw these locations on the given graphics.
+     * <p>
+     * Differs from RasterRenderer:
+     * <ul>
+     * <li>no GHOSTING
+     * </ul> 
+     */
+    public static void paintLocations( final Fretboard fretboard, final LocationList locations, Note root, 
+    		Graphics2D g2d, final Dimension size, final Display displayOpts, 
+        	final Point fretMinStringMin, final Point fretMaxStringMax ) {
+	    if ( null == locations) return;
+	    
+	    // Infer note and font size from given size.
+	    int noteRadius = Math.min( size.width, size.height ) / 20;
+		int fontSize = noteRadius * 2;
+		Font textFont = new Font( "SansSerif", Font.BOLD, fontSize );
+		g2d.setFont( textFont );
+	    int locationRadius = noteRadius;
+	    int locationDiameter = noteRadius * 2;
+    	
+    	for ( int locationi = 0; locationi < locations.size(); locationi++ ) {
+    		Location location = locations.get(locationi);
+            Note thisNote = location.getNote( fretboard );
+            if ( null != root ) {
+            	int intValue = thisNote.getQuality( root ) % displayOpts.intervalColors.length;
+            		g2d.setColor( displayOpts.intervalColors[ intValue ] );
+            } else
+            	g2d.setColor( displayOpts.defaultNoteColor );
+
+    		// Check for fret greater or less than min or max display fret.
+    		if (( location.getFret() >= displayOpts.displayAreaMin.getFret() ) &&
+    			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
+    			// Inside fret window
+    			Point point = getLocationPoint( size, displayOpts, location );
+    			if ( displayOpts.noteShadows ) {
+        			Color previousColor = g2d.getColor();
+        			g2d.setColor( displayOpts.noteShadowColor );
+		    		Point shadowOffset = new Point( noteRadius / 4, noteRadius / 4 );
+	    			g2d.fillOval( point.x + shadowOffset.x - locationRadius, point.y + shadowOffset.y - locationRadius, locationDiameter, locationDiameter);
+	    			g2d.setColor( previousColor );
+    			}
+    			g2d.fillOval( point.x - locationRadius, point.y - locationRadius, locationDiameter, locationDiameter);
+    			
+    			// Put interval or note name
+	    		String noteString = Integer.toString( location.getFret() );
+	    		if ( null == root ) {
+	    			// noteString = Integer.toString( location.getFret() );
+	            	g2d.setColor( displayOpts.defaultNoteTextColor );
+	    		} else {
+	    			// noteString = Note.getQualityName( thisNote, root );
+	    			int intValue = thisNote.getQuality( root ) % displayOpts.intervalColors.length;
+	            		g2d.setColor( displayOpts.intervalTextColors[ intValue ] );
+	    		}
+
+			    TextLayout layout = new TextLayout( noteString, textFont, g2d.getFontRenderContext() );
+				Rectangle2D stringBounds = layout.getBounds();
+				Point fretLoc = new Point( 
+					point.x -  (int) (stringBounds.getWidth() / 2.0 ) - 1,
+					point.y  + (int)(stringBounds.getHeight() / 2.0));
+	    		g2d.drawString( noteString, fretLoc.x, fretLoc.y);
+    		}
+    	}
+   }
 }

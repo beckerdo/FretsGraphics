@@ -30,7 +30,7 @@ import frets.main.NoteList;
 import frets.swing.model.ExtendedDisplayEntry;
 
 /**
- * Renders graphical respresentation of fretboard, strings, frets, locations. 
+ * Renders graphical representation of fretboard, strings, frets, locations. 
  */
 // TODO - Offset note so it appears slightly above the fret, not on it.
 // TODO - String thicknesses, but it might need anti aliasing. 
