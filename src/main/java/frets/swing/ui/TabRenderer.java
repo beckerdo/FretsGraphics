@@ -64,34 +64,15 @@ public class TabRenderer {
 		LocationList locations = LocationList.parseString( (String) entry.getMember( "Locations" ));
 	    
 	    // Calc corners of fret diagram
-	    // Point fretMinStringMin = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
 		Point fretMinStringMin = new Point( displayOpts.insets.left, size.height - displayOpts.insets.bottom ); // RIGHT
 	    System.out.println( "Location min string=" + displayOpts.displayAreaMin.getString() + ",fret=" + displayOpts.displayAreaMin.getFret() + ", point=" + fretMinStringMin );
-	    // Point fretMaxStringMax = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
 		Point fretMaxStringMax = new Point( size.width - displayOpts.insets.right, displayOpts.insets.top ); // RIGHT	    System.out.println( "Location min string=" + displayOpts.displayAreaMin.getString() + ",fret=" + displayOpts.displayAreaMin.getFret() + ", point=" + fretMinStringMin );
 	    System.out.println( "Location max string=" + displayOpts.displayAreaMax.getString() + ",fret=" + displayOpts.displayAreaMax.getFret() + ", point=" + fretMaxStringMax );
 
 		if (null != locations && locations.size() > 0) {
-		    // System.out.println( "Location size=" + locations.size() );
-		    
-			double xCenter = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / 2.0;
-			double xNoteDelta = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / MAX_LOCATIONS;
-			double xHalfDelta = (locations.size() % 2) == 1 ? 0 : (xNoteDelta / 2.0); // 0 for odd, half delta for even
-		    // System.out.println( "Tab center=" + xCenter + ",noteDelta=" + xNoteDelta + ", halfDelta=" + xHalfDelta );
-
-		    // Calc corners including location of min and max notes.
-		    // Point noteMinStringMin = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMin.getString(), displayOpts.displayAreaMin.getFret() ) );
-		    // if ( locations.size() < MAX_LOCATIONS ) {
-		    // 	double xMin =  xCenter - ((locations.size() / 2) * xNoteDelta) + xHalfDelta; 
-		    // 	noteMinStringMin.setLocation(xMin, noteMinStringMin.getY());
-		    // }
+		    System.out.println( "Location size=" + locations.size() );
 		    Point noteMinStringMin = TabRenderer.getTabPoint( size, displayOpts, displayOpts.displayAreaMin.getString(), 0, MAX_LOCATIONS );
 		    System.out.println( "Location noteMinStringMin=" + noteMinStringMin );
-		    // Point noteMaxStringMax = TabRenderer.getLocationPoint( size, displayOpts, new Location( displayOpts.displayAreaMax.getString(), displayOpts.displayAreaMax.getFret() ) ); 
-		    // if ( locations.size() < MAX_LOCATIONS ) {
-		    // 	double xMax =  xCenter + ((locations.size() / 2) * xNoteDelta) - xHalfDelta; 
-		    // 	noteMaxStringMax.setLocation(xMax, noteMaxStringMax.getY());
-		    // }
 		    Point noteMaxStringMax = TabRenderer.getTabPoint( size, displayOpts, displayOpts.displayAreaMax.getString(), locations.size(), locations.size() ); 
 		    System.out.println( "Location noteMaxStringMax=" + noteMaxStringMax );
 		    
@@ -132,54 +113,6 @@ public class TabRenderer {
 	}    
 
 	/** 
-	 * Converts a fretboard location into a point location.
-	 * The point location is influenced by display options as documented
-	 * in @see {@link RasterRenderer#getLocationPoint(Dimension, Display, float, float)}.
-	 */
-	public static Point getLocationPoint( Dimension size, Display displayOpts, Location location ) {
-		return getLocationPoint( size, displayOpts, location.getString(), location.getFret() );		
-	}
-	
-	/** 
-	 * Converts a tab location into a point location.
-	 * <p>
-	 * This version of the API can handle fractional and
-	 * outside the display area strings and notes.
-	 * For example, negative string and fret values can be used to
-	 * get locations for fret numbering, open string values, and
-	 * things that do not appear directly on the fretboard.
-	 * <p> 
-	 * The point location is influenced by display options:
-	 * <li>insets determines open space around fretboard.
-	 * <li>display area min and max determine view portal.
-	 * </ul>
-	 * <p>
-	 * Unlike FretRenderer:
-	 * <ul>
-	 * <li>where it says fret, location number is implied 
-	 * <li>this API does not pay attention to left/right, vertical/horizontal display options.
-	 * </ul>
-	 */
-	public static Point getLocationPoint( Dimension size, Display displayOpts, float string, float fret ) {
-		// Note: y axis is inverted. 0 at top, height at base.
-			// Note: y axis is inverted. 0 at top, height at base.
-			Point minStringMinFret = new Point( displayOpts.insets.left, size.height - displayOpts.insets.bottom ); // RIGHT
-			Point maxStringMaxFret = new Point( size.width - displayOpts.insets.right, displayOpts.insets.top ); // RIGHT
-
-			float stringDelta = (maxStringMaxFret.y - minStringMinFret.y)
-				/ (displayOpts.displayAreaMax.getString() - displayOpts.displayAreaMin.getString());
-			float y = minStringMinFret.y
-				+ (string - displayOpts.displayAreaMin.getString()) * stringDelta;
-
-			float fretDelta = (maxStringMaxFret.x - minStringMinFret.x)
-				/ (displayOpts.displayAreaMax.getFret() - displayOpts.displayAreaMin.getFret());
-			float x = minStringMinFret.x
-				+ (fret - displayOpts.displayAreaMin.getFret()) * fretDelta;
-
-			return new Point( Math.round( x ), Math.round( y ));
-	}
-	
-	/** 
 	 * Converts a tab location into a point location.
 	 * <p>
 	 * This version of the API can handle fractional and
@@ -210,12 +143,16 @@ public class TabRenderer {
 				+ (string - displayOpts.displayAreaMin.getString()) * stringDelta;
 
 		double xCenter = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / 2.0f;
-		double xNoteDelta = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / locations;
-		// System.out.println( "Tab center=" + xCenter + ",noteDelta=" + xNoteDelta + ", halfDelta=" + xHalfDelta );
+		double xNoteDelta = 0.0;
+		if ( locations > 0 )
+		   xNoteDelta = ( fretMaxStringMax.getX() - fretMinStringMin.getX()) / locations;
+		if ( loci == 0 )
+			System.out.println( "getTabPoint Tab center=" + xCenter + ", noteDelta=" + xNoteDelta );
 
 		int tabLocations = Math.min( locations, MAX_LOCATIONS );
 		double tabWidth = tabLocations * xNoteDelta;
-		double x = xCenter - (tabWidth/2.0) + (xNoteDelta*loci);
+		double x = xCenter - (tabWidth/2.0) + (xNoteDelta*loci) + displayOpts.insets.left;
+		// System.out.println( "getTabPoint location=" + loci + "/" + locations );
 		
 		return new Point( (int) Math.round( x ), Math.round( y ) );
 	}	
@@ -254,7 +191,8 @@ public class TabRenderer {
     		if (( location.getFret() >= displayOpts.displayAreaMin.getFret() ) &&
     			( location.getFret() <= displayOpts.displayAreaMax.getFret() )) {
     			// Inside fret window
-    			Point point = getLocationPoint( size, displayOpts, location );
+    			// Point point = getLocationPoint( size, displayOpts, location );
+    			Point point = getTabPoint( size, displayOpts, location.getString(), locationi, locations.size() );
     			if ( displayOpts.noteShadows ) {
         			Color previousColor = g2d.getColor();
         			g2d.setColor( displayOpts.noteShadowColor );
